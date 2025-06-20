@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Excel</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://kit.fontawesome.com/e99f7372e9.js" crossorigin="anonymous"></script>
+</head>
+<body>
+    <div id="app">
+        <div class="toolbar">
+            <button id="loadData">Load Data</button>
+            <button id="undo"><i class="fa-solid fa-rotate-left"></i></button>
+            <button id="redo"><i class="fa-solid fa-rotate-right"></i></button>
+            <button id="clear"><i class="fa-solid fa-eraser"></i></button>
+            <div class="stats">
+                <span id="selectionStats"></span>
+            </div>
+        </div>
+        <div class="excel-container">
+            <canvas id="excelCanvas"></canvas>
+            <div class="scrollbar-container">
+                <!-- Horizontal scrollbar -->
+                <div class="scrollbar horizontal-scrollbar">
+                    <div class="scrollbar-track horizontal-track">
+                        <div class="scrollbar-thumb horizontal-thumb"></div>
+                    </div>
+                </div>
+                <!-- Vertical scrollbar -->
+                <div class="scrollbar vertical-scrollbar">
+                    <div class="scrollbar-track vertical-track">
+                        <div class="scrollbar-thumb vertical-thumb"></div>
+                    </div>
+                </div>
+                <!-- Corner spacer -->
+                <div class="scrollbar-corner"></div>
+            </div>
+        </div>
+    </div>
+    <script type="module" src="./main.ts"></script>
+</body>
+</html>
