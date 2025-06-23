@@ -19,7 +19,7 @@ export class DataManager {
     /**
      * The maximum number of columns
      */
-    private maxCols: number = 500;
+    private maxCols: number = 16384;
 
     /**
      * The constructor

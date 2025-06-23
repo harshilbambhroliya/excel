@@ -78,6 +78,8 @@ export class EventHandler {
      */
     private scrollbarManager: ScrollbarManager | null = null;
 
+    private BASE_EDITOR_FONT_SIZE = 14;
+
     /**
      * The constructor
      * @param canvas - The canvas element
@@ -117,12 +119,18 @@ export class EventHandler {
      * Sets up the event listeners
      */
     private setupEventListeners(): void {
+        // Mouse events
         this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
         this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
         this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
         this.canvas.addEventListener('dblclick', this.handleDoubleClick.bind(this));
         this.canvas.addEventListener('wheel', this.handleWheel.bind(this));
         this.canvas.addEventListener('keydown', this.handleKeyDown.bind(this));
+        
+        // Touch events for mobile support
+        this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+        this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
+        this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this));
         
         // Make canvas focusable
         this.canvas.tabIndex = 0;
@@ -138,14 +146,25 @@ export class EventHandler {
         this.cellEditor.type = 'text';
         this.cellEditor.style.position = 'absolute';
         this.cellEditor.style.display = 'none';
-        this.cellEditor.style.border = '2px solid #316AC5';
+        // this.cellEditor.style.border = '2px solid #316AC5';
         this.cellEditor.style.padding = '2px';
-        this.cellEditor.style.fontSize = '16px';
-        this.cellEditor.style.fontFamily = 'Arial';
+        // this.cellEditor.style.fontSize = '16px';
+        this.cellEditor.style.fontFamily = 'Calibri';
         this.cellEditor.style.zIndex = '1000';
+        this.cellEditor.style.outline = 'none';
+        this.cellEditor.style.boxSizing = 'border-box';
+        this.cellEditor.style.margin = '0';
+        
+
         
         this.cellEditor.addEventListener('blur', this.finishCellEdit.bind(this));
         this.cellEditor.addEventListener('keydown', this.handleEditorKeyDown.bind(this));
+        
+        // Mobile-specific events
+        this.cellEditor.addEventListener('touchend', (e) => {
+            // Prevent bubbling to allow the virtual keyboard to appear
+            e.stopPropagation();
+        });
         
         document.body.appendChild(this.cellEditor);
     }
@@ -192,13 +211,26 @@ export class EventHandler {
             }
         }
         
+        // Check if clicking on header corner (clear selection)
+        if (event.offsetX < dimensions.headerWidth && event.offsetY < dimensions.headerHeight) {
+            this.grid.clearAllSelections();
+            this.renderer.render();
+            return;
+        }
+        
         // Cell selection
         const cellPos = this.renderer.getCellAtPosition(event.offsetX, event.offsetY);
         if (cellPos) {
             this.finishCellEdit();
+            // Clear any selected rows or columns before selecting a cell
+            this.grid.clearAllSelections();
             this.grid.getSelection().start(cellPos.row, cellPos.col);
             this.renderer.render();
             this.updateSelectionStats();
+        } else {
+            // Clicked in an empty area, clear selection
+            this.grid.clearAllSelections();
+            this.renderer.render();
         }
     }
 
@@ -577,30 +609,46 @@ export class EventHandler {
     }
 
     /**
-     * Starts the cell edit
+     * Starts editing a cell
      * @param row - The row index
      * @param col - The column index
-     * @param x - The x position
-     * @param y - The y position
+     * @param x - The x coordinate
+     * @param y - The y coordinate
      */
     private startCellEdit(row: number, col: number, x: number, y: number): void {
-        if (!this.cellEditor) return;
+        this.finishCellEdit(); // Finish any existing edit
         
-        this.editingCell = { row, col };
         const cell = this.grid.getCell(row, col);
         const cellRect = this.getCellRect(row, col);
         
-        if (cellRect) {
+        if (!cellRect) return;
+        
+        this.editingCell = { row, col };
+        
+        if (this.cellEditor) {
+            // Position and size the editor
             const canvasRect = this.canvas.getBoundingClientRect();
-            
+            const zoomFactor = this.renderer.getZoom();
             this.cellEditor.style.left = (canvasRect.left + cellRect.x) + 'px';
             this.cellEditor.style.top = (canvasRect.top + cellRect.y) + 'px';
             this.cellEditor.style.width = cellRect.width + 'px';
             this.cellEditor.style.height = cellRect.height + 'px';
             this.cellEditor.style.display = 'block';
+            
+            this.cellEditor.style.fontSize = (this.BASE_EDITOR_FONT_SIZE * zoomFactor) + 'px';
+            // Set the initial value
             this.cellEditor.value = cell.getDisplayValue();
+            
+            // Focus and select all text
             this.cellEditor.focus();
             this.cellEditor.select();
+            
+            // On mobile, try to open the keyboard by simulating a click
+            if ('ontouchstart' in window) {
+                setTimeout(() => {
+                    this.cellEditor?.click();
+                }, 100);
+            }
         }
     }
 
@@ -825,10 +873,16 @@ export class EventHandler {
         if (cellRect) {
             const canvasRect = this.canvas.getBoundingClientRect();
             
-            this.cellEditor.style.left = (canvasRect.left + cellRect.x) + 'px';
-            this.cellEditor.style.top = (canvasRect.top + cellRect.y) + 'px';
-            this.cellEditor.style.width = cellRect.width + 'px';
-            this.cellEditor.style.height = cellRect.height + 'px';
+            const zoomFactor = this.renderer.getZoom();
+            
+            // Scale cellRect values by zoomFactor for HTML element positioning and sizing
+            this.cellEditor.style.left = (canvasRect.left + cellRect.x * zoomFactor) + 'px';
+            this.cellEditor.style.top = (canvasRect.top + cellRect.y * zoomFactor) + 'px';
+            this.cellEditor.style.width = (cellRect.width * zoomFactor) + 'px';
+            this.cellEditor.style.height = (cellRect.height * zoomFactor) + 'px';
+            
+            // Update font size based on zoom factor
+            this.cellEditor.style.fontSize = (this.BASE_EDITOR_FONT_SIZE * zoomFactor) + 'px';
         }
     }
 
@@ -908,4 +962,115 @@ export class EventHandler {
             statsElement.innerHTML = `<div class="stat-item" id="selected">Selected: <span class="stat-value">${count} cells</span></div>`;
         }
     }
+
+    /**
+     * Handles the touch start event for mobile devices
+     * @param event - The touch event
+     */
+    private handleTouchStart(event: TouchEvent): void {
+        // Prevent default to avoid scrolling the page
+        event.preventDefault();
+        
+        if (event.touches.length === 1) {
+            const touch = event.touches[0];
+            const rect = this.canvas.getBoundingClientRect();
+            
+            // Convert touch coordinates to canvas coordinates
+            const offsetX = touch.clientX - rect.left;
+            const offsetY = touch.clientY - rect.top;
+            
+            // Create a synthetic mouse event
+            const mouseEvent = {
+                offsetX,
+                offsetY,
+                preventDefault: () => {},
+                stopPropagation: () => {}
+            } as unknown as MouseEvent;
+            
+            // Handle as a mouse down event
+            this.handleMouseDown(mouseEvent);
+            
+            // Store the touch position for potential double-tap detection
+            this.lastTouchPosition = { x: offsetX, y: offsetY };
+            this.lastTouchTime = Date.now();
+        }
+    }
+    
+    /**
+     * Handles the touch move event for mobile devices
+     * @param event - The touch event
+     */
+    private handleTouchMove(event: TouchEvent): void {
+        // Prevent default to avoid scrolling the page when manipulating the grid
+        event.preventDefault();
+        
+        if (event.touches.length === 1 && this.isMouseDown) {
+            const touch = event.touches[0];
+            const rect = this.canvas.getBoundingClientRect();
+            
+            // Convert touch coordinates to canvas coordinates
+            const offsetX = touch.clientX - rect.left;
+            const offsetY = touch.clientY - rect.top;
+            
+            // Create a synthetic mouse event
+            const mouseEvent = {
+                offsetX,
+                offsetY,
+                preventDefault: () => {},
+                stopPropagation: () => {}
+            } as unknown as MouseEvent;
+            
+            // Handle as a mouse move event
+            this.handleMouseMove(mouseEvent);
+        }
+    }
+    
+    /**
+     * Handles the touch end event for mobile devices
+     * @param event - The touch event
+     */
+    private handleTouchEnd(event: TouchEvent): void {
+        // Create a synthetic mouse event
+        const mouseEvent = {
+            preventDefault: () => {},
+            stopPropagation: () => {}
+        } as unknown as MouseEvent;
+        
+        // Handle as a mouse up event
+        this.handleMouseUp(mouseEvent);
+        
+        // Check for double-tap (similar to double-click)
+        if (this.lastTouchPosition && this.lastTouchTime) {
+            const now = Date.now();
+            const timeDiff = now - this.lastTouchTime;
+            
+            if (timeDiff < 300) { // 300ms threshold for double-tap
+                const touch = event.changedTouches[0];
+                const rect = this.canvas.getBoundingClientRect();
+                
+                // Convert touch coordinates to canvas coordinates
+                const offsetX = touch.clientX - rect.left;
+                const offsetY = touch.clientY - rect.top;
+                
+                // Create a synthetic mouse event for double-click
+                const dblClickEvent = {
+                    offsetX,
+                    offsetY,
+                    preventDefault: () => {},
+                    stopPropagation: () => {}
+                } as unknown as MouseEvent;
+                
+                // Simulate double-click to edit cell
+                this.handleDoubleClick(dblClickEvent);
+            }
+            
+            // Reset touch tracking
+            this.lastTouchPosition = null;
+            this.lastTouchTime = 0;
+        }
+    }
+    
+    // Properties for tracking touch for double-tap detection
+    private lastTouchPosition: { x: number, y: number } | null = null;
+    private lastTouchTime: number = 0;
 }

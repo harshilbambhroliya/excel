@@ -84,6 +84,7 @@ export class Renderer {
         this.setupCanvas();
         this.calculateViewport();
         this.calculatePositions();
+        this.calculateAndSetRowHeaderWidth();
     }
 
     /**
@@ -91,8 +92,7 @@ export class Renderer {
      */
     private calculatePositions(): void {
         const dimensions = this.grid.getDimensions();
-        
-        // Calculate column positions (without zoom - we'll apply zoom in rendering)
+       
         this.columnPositions = [dimensions.headerWidth];
         let currentX = dimensions.headerWidth;
         
@@ -100,14 +100,22 @@ export class Renderer {
             currentX += this.grid.getColumnWidth(col);
             this.columnPositions.push(currentX);
         }
-        
-        // Calculate row positions (without zoom - we'll apply zoom in rendering)
+       
         this.rowPositions = [dimensions.headerHeight];
         let currentY = dimensions.headerHeight;
         for (let row = 0; row < this.grid.getMaxRows(); row++) {
             currentY += this.grid.getRowHeight(row);
             this.rowPositions.push(currentY);
         }
+    }
+
+    /**
+     * Updates the device pixel ratio
+     */
+    public updateDevicePixelRatio(): void {
+        this.devicePixelRatio = window.devicePixelRatio || 1;
+        // This will trigger setupCanvas and re-render with the new DPR
+        this.handleWindowResize(); 
     }
     
     /**
@@ -217,21 +225,23 @@ export class Renderer {
         const container = this.canvas.parentElement;
         if (!container) return;
         
+        // Get the full container size without subtracting scrollbar space
         const containerRect = container.getBoundingClientRect();
-        // Account for scrollbar space (16px each)
-        const width = containerRect.width - 16;
-        const height = containerRect.height - 16;
+        const width = containerRect.width;
+        const height = containerRect.height;
         
         // Set actual size in memory (scaled for high DPI)
         this.canvas.width = width * this.devicePixelRatio;
         this.canvas.height = height * this.devicePixelRatio;
         
+        // Reset the transform matrix before scaling to prevent cumulative scaling
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0); 
         // Scale the context to ensure correct drawing operations
         this.ctx.scale(this.devicePixelRatio, this.devicePixelRatio);
         
-        // Set display size (css pixels)
-        this.canvas.style.width = width + 'px';
-        this.canvas.style.height = height + 'px';
+        // Set display size (css pixels) to fill container completely
+        this.canvas.style.width = '100%';
+        this.canvas.style.height = '100%';
         
         // Update viewport
         this.viewport = {
@@ -242,6 +252,7 @@ export class Renderer {
         };
         
         console.log(`Canvas setup: width=${width}, height=${height}`);
+        this.calculateAndSetRowHeaderWidth();
     }
 
     /**
@@ -264,6 +275,7 @@ export class Renderer {
         this.clearCanvas();
         // Recalculate positions whenever rendering
         this.calculatePositions();
+        this.calculateAndSetRowHeaderWidth();
         
         // Apply the zoom transform and render the content
         this.renderContent();
@@ -358,7 +370,7 @@ export class Renderer {
         // Draw headers
         this.ctx.fillStyle = '#666666'; // Excel uses dark gray text for headers
         this.ctx.font = '14px Calibri'; // Excel uses Calibri font
-        this.ctx.textAlign = 'center';
+        this.ctx.textAlign = 'right'; // Align text to the right
         this.ctx.textBaseline = 'middle';
         
         // Draw horizontal grid lines in row headers
@@ -376,30 +388,34 @@ export class Renderer {
             const rowObj = this.grid.getRow(row);
             if (rowObj?.isSelected) {
                 // Excel uses a specific blue for selected headers
-                this.ctx.fillStyle = '#e3e9ff';
+                this.ctx.fillStyle = '#217346';
                 this.ctx.fillRect(0, yPos, dimensions.headerWidth, rowHeight);
-                this.ctx.fillStyle = '#217346'; // Excel uses green for selection text
+                this.ctx.fillStyle = '#ffffff'; // Excel uses green for selection text
+                this.ctx.font = 'Bold 14px Calibri';
             } else {
                 this.ctx.fillStyle = '#666666';
+                this.ctx.font = '14px Calibri';
+
             }
             
-            this.ctx.fillText(String(row + 1), dimensions.headerWidth / 2, yPos + rowHeight / 2);
+            // Adjust text position for right alignment with padding
+            this.ctx.fillText(String(row + 1), dimensions.headerWidth - 8, yPos + rowHeight / 2); // 8px padding from right
             
             // Draw horizontal line at the bottom of each row header
-            this.ctx.strokeStyle = '#d4d4d4';
-            this.ctx.lineWidth = 0.5;
+            this.ctx.strokeStyle = '#E0E0E0';
+            this.ctx.lineWidth = 1 / this.devicePixelRatio;
             this.ctx.beginPath();
-            this.ctx.moveTo(0, yPos + rowHeight);
-            this.ctx.lineTo(dimensions.headerWidth, yPos + rowHeight);
+            this.ctx.moveTo(0, Math.floor(yPos) + 0.5 + rowHeight);
+            this.ctx.lineTo(dimensions.headerWidth, Math.floor(yPos) + 0.5  + rowHeight);
             this.ctx.stroke();
         }
         
         // Draw right border for row headers
-        this.ctx.strokeStyle = '#d4d4d4';
-        this.ctx.lineWidth = 0.5;
+        this.ctx.strokeStyle = '#FFFFFF';
+        this.ctx.lineWidth = 1 / this.devicePixelRatio;
         this.ctx.beginPath();
-        this.ctx.moveTo(dimensions.headerWidth, dimensions.headerHeight);
-        this.ctx.lineTo(dimensions.headerWidth, this.viewport.height);
+        this.ctx.moveTo(Math.floor(dimensions.headerWidth) + 0.5, dimensions.headerHeight);
+        this.ctx.lineTo(Math.floor(dimensions.headerWidth) + 0.5, this.viewport.height);
         this.ctx.stroke();
         
         this.ctx.restore();
@@ -444,30 +460,32 @@ export class Renderer {
             const colObj = this.grid.getColumn(col);
             if (colObj?.isSelected) {
                 // Excel uses a specific blue for selected headers
-                this.ctx.fillStyle = '#e3e9ff';
+                this.ctx.fillStyle = '#217346';
                 this.ctx.fillRect(xPos, 0, colWidth, dimensions.headerHeight);
-                this.ctx.fillStyle = '#217346'; // Excel uses green for selection text
+                this.ctx.fillStyle = '#ffffff'; // Excel uses green for selection text
+                this.ctx.font = 'Bold 14px Calibri';
             } else {
                 this.ctx.fillStyle = '#666666';
+                this.ctx.font = '14px Calibri';
             }
             
             this.ctx.fillText(colObj.header, xPos + colWidth / 2, dimensions.headerHeight / 2);
             
             // Draw vertical line at the right edge of each column header
-            this.ctx.strokeStyle = '#d4d4d4';
-            this.ctx.lineWidth = 0.5;
+            this.ctx.strokeStyle = '#E0E0E0';
+            this.ctx.lineWidth = 1 / this.devicePixelRatio;
             this.ctx.beginPath();
-            this.ctx.moveTo(xPos + colWidth, 0);
-            this.ctx.lineTo(xPos + colWidth, dimensions.headerHeight);
+            this.ctx.moveTo(Math.floor(xPos) + 0.5 + colWidth, 0);
+            this.ctx.lineTo(Math.floor(xPos) + 0.5 + colWidth, dimensions.headerHeight);
             this.ctx.stroke();
         }
         
         // Draw bottom border for column headers
-        this.ctx.strokeStyle = '#d4d4d4';
-        this.ctx.lineWidth = 0.5;
+        this.ctx.strokeStyle = '#FFFFFF';
+        this.ctx.lineWidth = 1 / this.devicePixelRatio;
         this.ctx.beginPath();
-        this.ctx.moveTo(dimensions.headerWidth, dimensions.headerHeight);
-        this.ctx.lineTo(this.viewport.width, dimensions.headerHeight);
+        this.ctx.moveTo(dimensions.headerWidth, Math.floor(dimensions.headerHeight) + 0.5);
+        this.ctx.lineTo(this.viewport.width, Math.floor(dimensions.headerHeight) + 0.5);
         this.ctx.stroke();
         
         this.ctx.restore();
@@ -695,13 +713,13 @@ export class Renderer {
         this.ctx.restore();
     }
 
+
     /**
      * Renders the grid lines
      */
     private renderGridLines(): void {
         const dimensions = this.grid.getDimensions();
-        
-        // Create a clip region to prevent grid lines from drawing over headers
+        const dpr = this.devicePixelRatio || 1;
         this.ctx.save();
         this.ctx.beginPath();
         this.ctx.rect(
@@ -711,38 +729,38 @@ export class Renderer {
             this.viewport.height - dimensions.headerHeight
         );
         this.ctx.clip();
-        
-        // Excel has very light grid lines
+
+        // Use exactly 1 device pixel for line width
         this.ctx.strokeStyle = '#e6e6e6';
-        this.ctx.lineWidth = 1;
-        
+        this.ctx.lineWidth = 1 / dpr;
+        this.ctx.imageSmoothingEnabled = true;
+
         // Vertical grid lines
         for (let col = 0; col < this.grid.getMaxCols(); col++) {
             const xPos = this.getColumnPosition(col) - this.scrollX;
-            
             if (xPos < dimensions.headerWidth) continue;
             if (xPos > this.viewport.width) break;
-            
             this.ctx.beginPath();
-            this.ctx.moveTo(xPos, dimensions.headerHeight);
-            this.ctx.lineTo(xPos, this.viewport.height);
+            const px = Math.floor(xPos) + 0.5;
+
+            this.ctx.moveTo(px, dimensions.headerHeight);
+            this.ctx.lineTo(px, this.viewport.height);
             this.ctx.stroke();
         }
-        
+
         // Horizontal grid lines
         for (let row = 0; row < this.grid.getMaxRows(); row++) {
             const yPos = this.getRowPosition(row) - this.scrollY;
-            
             if (yPos < dimensions.headerHeight) continue;
             if (yPos > this.viewport.height) break;
-            
             this.ctx.beginPath();
-            this.ctx.moveTo(dimensions.headerWidth, yPos);
-            this.ctx.lineTo(this.viewport.width, yPos);
+    
+            const py = Math.floor(yPos) + 0.5;
+            this.ctx.moveTo(dimensions.headerWidth, py);
+            this.ctx.lineTo(this.viewport.width, py);
             this.ctx.stroke();
         }
-        
-        // Restore the context
+
         this.ctx.restore();
     }
 
@@ -861,23 +879,27 @@ export class Renderer {
     }
 
     /**
-     * Resizes the canvas
-     */
-    public resize(): void {
-        this.setupCanvas();
-        this.calculatePositions();
-        this.updateScrollbars();
-        this.render();
-    }
-
-    /**
      * Handles the window resize event
      */
     public handleWindowResize(): void {
+        // Save current scroll position and zoom
+        const currentScrollX = this.scrollX;
+        const currentScrollY = this.scrollY;
+        const currentZoom = this.zoomFactor;
+        
+        // Setup canvas to match new container size
         this.setupCanvas();
         this.calculatePositions();
+        
+        // Restore scroll position and zoom
+        this.scrollX = currentScrollX;
+        this.scrollY = currentScrollY;
+        this.zoomFactor = currentZoom;
+        
+        // Update scrollbars and render
         this.updateScrollbars();
         this.render();
+        this.calculateAndSetRowHeaderWidth();
     }
 
     /**
@@ -991,37 +1013,8 @@ export class Renderer {
         // Restore context
         this.ctx.restore();
         
-        // Also highlight the corresponding headers
-        this.highlightActiveHeaders(activeRow, activeCol);
     }
     
-    /**
-     * Highlights the headers for the active row and column
-     * @param {number} activeRow The active row index
-     * @param {number} activeCol The active column index
-     */
-    private highlightActiveHeaders(activeRow: number, activeCol: number): void {
-        const dimensions = this.grid.getDimensions();
-        
-        // Highlight row header
-        const rowYPos = this.getRowPosition(activeRow) - this.scrollY;
-        const rowHeight = this.grid.getRowHeight(activeRow);
-        
-        if (rowYPos + rowHeight >= dimensions.headerHeight && rowYPos <= this.viewport.height) {
-            this.ctx.fillStyle = 'rgba(217, 226, 243, 0.9)'; // Slightly darker for headers
-            this.ctx.fillRect(0, rowYPos, dimensions.headerWidth, rowHeight);
-        }
-        
-        // Highlight column header
-        const colXPos = this.getColumnPosition(activeCol) - this.scrollX;
-        const colWidth = this.grid.getColumnWidth(activeCol);
-        
-        if (colXPos + colWidth >= dimensions.headerWidth && colXPos <= this.viewport.width) {
-            this.ctx.fillStyle = 'rgba(217, 226, 243, 0.9)'; // Slightly darker for headers
-            this.ctx.fillRect(colXPos, 0, colWidth, dimensions.headerHeight);
-        }
-    }
-
     /**
      * Sets the zoom factor
      * @param {number} zoom The zoom factor to set
@@ -1047,6 +1040,9 @@ export class Renderer {
         // Ensure scroll positions don't go negative
         this.scrollX = Math.max(0, this.scrollX);
         this.scrollY = Math.max(0, this.scrollY);
+
+        this.devicePixelRatio = this.zoomFactor; 
+
         
         // Recalculate positions with new zoom factor
         this.calculatePositions();
@@ -1054,6 +1050,7 @@ export class Renderer {
         // Update scrollbars and render
         this.updateScrollbars();
         this.render();
+
         
         // Notify event handler about zoom change
         if (this.eventHandler) {
@@ -1103,10 +1100,41 @@ export class Renderer {
             } else if (delta < 0) {
                 this.zoomOut();
             }
-            
+            this.render();
             return true;
         }
         
         return false;
+    }
+
+    /**
+     * Calculates the optimal width for row headers based on the longest row number.
+     * This ensures row numbers are not truncated.
+     */
+    private calculateAndSetRowHeaderWidth(): void {
+        const visibleRows = this.getVisibleRowRange();
+        let maxWidth = 0;
+
+        // Temporarily set font for measurement - match what's used in renderRowHeaders
+        this.ctx.font = '14px Calibri'; 
+        
+        // Measure the width of all visible row numbers to find the maximum
+        for (let row = visibleRows.startRow; row < visibleRows.endRow; row++) {
+            const rowNumber = String(row + 1);
+            const textMetrics = this.ctx.measureText(rowNumber);
+            if (textMetrics.width > maxWidth) {
+                maxWidth = textMetrics.width;
+            }
+        }
+        
+        
+        const PADDING = 35; // Adjust padding to give some space after the number
+        const MIN_WIDTH = 30; // Minimum width for header
+        const newHeaderWidth = Math.max(MIN_WIDTH, maxWidth + PADDING);
+        
+      
+        if (Math.abs(newHeaderWidth - this.grid.getDimensions().headerWidth) > 1) {
+            this.grid.setHeaderWidth(newHeaderWidth);
+        }
     }
 }

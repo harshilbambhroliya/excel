@@ -33,6 +33,12 @@ class ExcelApp {
      */
     constructor() {
         this.canvas = document.getElementById('excelCanvas') as HTMLCanvasElement;
+        const dpr = window.devicePixelRatio || 1;
+        this.canvas.width = this.canvas.clientWidth * dpr;
+        this.canvas.height = this.canvas.clientHeight * dpr;
+        this.canvas.style.width = this.canvas.clientWidth + "px";
+        this.canvas.style.height = this.canvas.clientHeight + "px";
+        this.canvas.getContext('2d')?.scale(dpr, dpr); // Important
         if (!this.canvas) {
             throw new Error('Canvas element not found');
         }
@@ -55,6 +61,7 @@ class ExcelApp {
         
         // Set the event handler in renderer
         this.renderer.setEventHandler(this.eventHandler);
+        this.handleDPRChange();
 
         const container = document.querySelector('.excel-container') as HTMLElement;
         if (container) {
@@ -71,9 +78,16 @@ class ExcelApp {
         
         // Initialize zoom display
         this.updateZoomLevelDisplay();
+
         
         // Initial render
         this.renderer.render();
+
+        this.setupDPRListener();
+    }
+
+    private handleDPRChange(): void {
+        this.renderer!.updateDevicePixelRatio();
     }
 
     /**
@@ -88,7 +102,6 @@ class ExcelApp {
         const zoomInBtn = document.getElementById('zoomIn');
         const zoomOutBtn = document.getElementById('zoomOut');
         const zoomResetBtn = document.getElementById('zoomReset');
-        const zoomLevelSpan = document.getElementById('zoomLevel');
 
         if (loadDataBtn) {
             loadDataBtn.addEventListener('click', () => {
@@ -153,6 +166,7 @@ class ExcelApp {
      * Updates the zoom level display
      */
     private updateZoomLevelDisplay(): void {
+        // this.handleDPRChange();
         const zoomLevelSpan = document.getElementById('zoomLevel');
         if (zoomLevelSpan && this.renderer) {
             const zoomPercentage = Math.round(this.renderer.getZoom() * 100);
@@ -182,10 +196,16 @@ class ExcelApp {
         const container = this.canvas.parentElement;
         if (!container) return;
         
-        // Force container to take full available space
+        // Let the canvas style handle dimensions rather than setting width/height directly
+        // This allows the CSS to control the visual size while maintaining proper pixel ratio
+        this.canvas.style.width = '100%';
+        this.canvas.style.height = '100%';
+        
+        // For the initial setup, set the width/height based on container size
+        // (Renderer.setupCanvas will handle this more thoroughly later)
         const rect = container.getBoundingClientRect();
-        this.canvas.width = rect.width;
-        this.canvas.height = rect.height;
+        this.canvas.width = rect.width * window.devicePixelRatio;
+        this.canvas.height = rect.height * window.devicePixelRatio;
     }
     
     /**
@@ -196,7 +216,10 @@ class ExcelApp {
             const resizeObserver = new ResizeObserver((entries) => {
                 for (const entry of entries) {
                     if (entry.target === this.canvas.parentElement) {
-                        this.renderer!.handleWindowResize();
+                        // Use requestAnimationFrame to avoid multiple resize events
+                        requestAnimationFrame(() => {
+                            this.renderer!.handleWindowResize();
+                        });
                         break;
                     }
                 }
@@ -207,12 +230,31 @@ class ExcelApp {
             }
         } else {
             // Fallback for browsers without ResizeObserver
-            (window as any).addEventListener('resize', () => {
-                setTimeout(() => {
+            (window as Window).addEventListener('resize', () => {
+                // Use requestAnimationFrame to throttle resize events
+                requestAnimationFrame(() => {
                     this.renderer!.handleWindowResize();
-                }, 100);
+                });
             });
         }
+        
+        // Additional event listener for orientation changes on mobile
+        window.addEventListener('orientationchange', () => {
+            // Wait a bit for the orientation change to complete
+            setTimeout(() => {
+                this.renderer!.handleWindowResize();
+            }, 200);
+        });
+    }
+
+    private setupDPRListener(): void {
+        let lastDPR = window.devicePixelRatio;
+        setInterval(() => {
+            if (window.devicePixelRatio !== lastDPR) {
+                lastDPR = window.devicePixelRatio;
+                this.handleDPRChange();
+            }
+        }, 300); // Check every 300ms
     }
 }
 

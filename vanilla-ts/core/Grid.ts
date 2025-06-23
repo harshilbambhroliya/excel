@@ -242,6 +242,14 @@ export class Grid {
     }
 
     /**
+     * Sets the width of the header column.
+     * @param {number} width The new width for the header column.
+     */
+    public setHeaderWidth(width: number): void {
+        this.dimensions.headerWidth = width;
+    }
+
+    /**
      * Gets all cells in the current selection
      * @returns {any[]} Array of cells in the selection
      */
