@@ -8,21 +8,83 @@ import { ResizeRowCommand } from '../commands/ResizeRowCommand.js';
 import { MathUtils } from '../utils/MathUtils.js';
 import { ScrollbarManager } from './ScrollbarManager.js';
 
+/**
+ * EventHandler class
+ * @description Handles all the events for the grid
+ */
 export class EventHandler {
+    /**
+     * The canvas element
+     */
     private canvas: HTMLCanvasElement;
+
+    /**
+     * The grid
+     */
     private grid: Grid;
+    
+    /**
+     * The renderer
+     */
     private renderer: Renderer;
+    
+    /**
+     * The command manager
+     */
     private commandManager: CommandManager;
+    
+    /**
+     * Whether the mouse is down
+     */
     private isMouseDown: boolean = false;
+
+    /**
+     * Whether the mouse is dragging
+     */
     private isDragging: boolean = false;
+
+    /**
+     * Whether the mouse is resizing
+     */
     private isResizing: boolean = false;
+
+    /**
+     * The target of the resize
+     */
     private resizeTarget: { type: 'row' | 'column'; index: number } | null = null;
+    
+    /**
+     * The last mouse position
+     */
     private lastMousePos: { x: number; y: number } = { x: 0, y: 0 };
+    
+    /**
+     * The cell that is being edited
+     */
     private editingCell: { row: number; col: number } | null = null;
+    
+    /**
+     * The cell editor
+     */
     private cellEditor: HTMLInputElement | null = null;
+    
+    /**
+     * The resize timeout
+     */
     private resizeTimeout: number | null = null;
+
+    /**
+     * The scrollbar manager
+     */
     private scrollbarManager: ScrollbarManager | null = null;
 
+    /**
+     * The constructor
+     * @param canvas - The canvas element
+     * @param grid - The grid
+     * @param renderer - The renderer
+     * @param commandManager - The command manager
+     */
     constructor(canvas: HTMLCanvasElement, grid: Grid, renderer: Renderer, commandManager: CommandManager) {
         this.canvas = canvas;
         this.grid = grid;
@@ -33,10 +95,17 @@ export class EventHandler {
         this.createCellEditor();
     }
 
+    /**
+     * Sets the scrollbar manager
+     * @param scrollbarManager - The scrollbar manager
+     */
     public setScrollbarManager(scrollbarManager: ScrollbarManager): void {
         this.scrollbarManager = scrollbarManager;
     }
 
+    /**
+     * Handles the scroll event
+     */
     public handleScroll(): void {
         // Update cell editor position during any scroll event
         if (this.editingCell) {
@@ -44,6 +113,9 @@ export class EventHandler {
         }
     }
 
+    /**
+     * Sets up the event listeners
+     */
     private setupEventListeners(): void {
         this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
         this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
@@ -58,6 +130,9 @@ export class EventHandler {
         window.addEventListener('resize', this.handleResize.bind(this));
     }
 
+    /**
+     * Creates the cell editor
+     */
     private createCellEditor(): void {
         this.cellEditor = document.createElement('input');
         this.cellEditor.type = 'text';
@@ -65,7 +140,7 @@ export class EventHandler {
         this.cellEditor.style.display = 'none';
         this.cellEditor.style.border = '2px solid #316AC5';
         this.cellEditor.style.padding = '2px';
-        this.cellEditor.style.fontSize = '12px';
+        this.cellEditor.style.fontSize = '16px';
         this.cellEditor.style.fontFamily = 'Arial';
         this.cellEditor.style.zIndex = '1000';
         
@@ -75,6 +150,10 @@ export class EventHandler {
         document.body.appendChild(this.cellEditor);
     }
 
+    /**
+     * Handles the mouse down event
+     * @param event - The mouse event
+     */
     private handleMouseDown(event: MouseEvent): void {
         this.canvas.focus();
         this.isMouseDown = true;
@@ -123,6 +202,10 @@ export class EventHandler {
         }
     }
 
+    /**
+     * Handles the mouse move event
+     * @param event - The mouse event
+     */
     private handleMouseMove(event: MouseEvent): void {
         const dimensions = this.grid.getDimensions();
         
@@ -150,6 +233,10 @@ export class EventHandler {
         }
     }
 
+    /**
+     * Handles the mouse up event
+     * @param event - The mouse event
+     */
     private handleMouseUp(event: MouseEvent): void {
         this.isMouseDown = false;
         this.isDragging = false;
@@ -161,6 +248,10 @@ export class EventHandler {
         }
     }
 
+    /**
+     * Handles the double click event
+     * @param event - The mouse event
+     */
     private handleDoubleClick(event: MouseEvent): void {
         const cellPos = this.renderer.getCellAtPosition(event.offsetX, event.offsetY);
         if (cellPos) {
@@ -168,8 +259,19 @@ export class EventHandler {
         }
     }
 
+    /**
+     * Handles the wheel event
+     * @param event - The wheel event
+     */
      private handleWheel(event: WheelEvent): void {
         event.preventDefault();
+        
+        // Check if Ctrl key is pressed for zooming
+        if (event.ctrlKey) {
+            // Use renderer's handleWheel method for zooming
+            this.renderer.handleWheel(event, true);
+            return;
+        }
         
         if (this.scrollbarManager) {
             // Use scrollbar manager for smooth scrolling
@@ -190,6 +292,10 @@ export class EventHandler {
         }
     }
 
+    /**
+     * Handles the keyboard event
+     * @param event - The keyboard event
+     */
     private handleKeyDown(event: KeyboardEvent): void {
         const selection = this.grid.getSelection();
         if (!selection.isActive) return;
@@ -224,15 +330,116 @@ export class EventHandler {
         else if(event.ctrlKey){
             switch(event.key){
                 case 'z':
-                    this.commandManager.undo();
+                    {this.commandManager.undo();
                     this.renderer.render();
                     this.updateSelectionStats();
-                    break;
+                    break;}
                 case 'y':
-                    this.commandManager.redo();
+                    {this.commandManager.redo();
+                    this.renderer.render();
+                    this.updateSelectionStats();}
+                    break;
+                case 'ArrowRight':
+                    // Extend selection to the right until non-empty cell or edge
+                   { event.preventDefault();
+                    let rightCol = selection.endCol;
+                    let foundNonEmpty = false;
+                    
+                    // Start from one column after the current selection end
+                    for (let col = selection.endCol + 1; col < this.grid.getMaxCols(); col++) {
+                        const cell = this.grid.getCell(selection.endRow, col);
+                        
+                        // // If we find a non-empty cell, select up to it (inclusive)
+                        if (cell ) {
+                            rightCol = col;
+                            foundNonEmpty = true;
+                            break;
+                        }
+                    }
+                    
+                    // Extend the selection
+                    selection.extend(selection.endRow, rightCol);
+                    this.ensureCellVisible(selection.endRow, rightCol);
                     this.renderer.render();
                     this.updateSelectionStats();
-                    break;
+                    return;}
+                    
+                case 'ArrowLeft':
+                    // Extend selection to the left until non-empty cell or edge
+                    {event.preventDefault();
+                    let leftCol = selection.endCol;
+                    let foundNonEmpty = false;
+                    
+                    // Start from one column before the current selection end
+                    for (let col = selection.endCol - 1; col >= 0; col--) {
+                        const cell = this.grid.getCell(selection.endRow, col);
+                        
+                        // If we find a non-empty cell, select up to it (inclusive)
+                        if (cell) {
+                            leftCol = col;
+                            foundNonEmpty = true;
+                            break;
+                        }
+                    }
+                    
+                   
+                    // Extend the selection
+                    selection.extend(selection.endRow, leftCol);
+                    this.ensureCellVisible(selection.endRow, leftCol);
+                    this.renderer.render();
+                    this.updateSelectionStats();
+                    return;}
+                    
+                case 'ArrowDown':
+                    // Extend selection downward until non-empty cell or edge
+                   { event.preventDefault();
+                    let downRow = selection.endRow;
+                    let foundNonEmpty = false;
+                    
+                    // Start from one row after the current selection end
+                    for (let row = selection.endRow + 1; row < this.grid.getMaxRows(); row++) {
+                        const cell = this.grid.getCell(row, selection.endCol);
+                        
+                        // If we find a non-empty cell, select up to it (inclusive)
+                        if (cell) {
+                            downRow = row;
+                            foundNonEmpty = true;
+                            break;
+                        }
+                    }
+                    
+                    
+                    // Extend the selection
+                    selection.extend(downRow, selection.endCol);
+                    this.ensureCellVisible(downRow, selection.endCol);
+                    this.renderer.render();
+                    this.updateSelectionStats();
+                    return;
+                    }
+                case 'ArrowUp':
+                    // Extend selection upward until non-empty cell or edge
+                   { event.preventDefault();
+                    let upRow = selection.endRow;
+                    let foundNonEmpty = false;
+                    
+                    // Start from one row before the current selection end
+                    for (let row = selection.endRow - 1; row >= 0; row--) {
+                        const cell = this.grid.getCell(row, selection.endCol);
+                        
+                        // If we find a non-empty cell, select up to it (inclusive)
+                        if (cell) {
+                            upRow = row;
+                            foundNonEmpty = true;
+                            break;
+                        }
+                    }
+                    // Extend the selection
+                    selection.extend(upRow, selection.endCol);
+                    this.ensureCellVisible(upRow, selection.endCol);
+                    this.renderer.render();
+                    this.updateSelectionStats();
+                    return;}
+                    
                 default:
             }
         } 
@@ -276,6 +483,12 @@ export class EventHandler {
         this.updateSelectionStats();
     }
 
+    /**
+     * Gets the resize target
+     * @param x - The x position
+     * @param y - The y position
+     * @returns The resize target
+     */
     private getResizeTarget(x: number, y: number): { type: 'row' | 'column'; index: number } | null {
         const dimensions = this.grid.getDimensions();
         const tolerance = 3;
@@ -323,6 +536,10 @@ export class EventHandler {
         return null;
     }
 
+    /**
+     * Handles the resize drag event
+     * @param event - The mouse event
+     */
     private handleResizeDrag(event: MouseEvent): void {
         if (!this.resizeTarget) return;
         
@@ -359,6 +576,13 @@ export class EventHandler {
         this.renderer.render();
     }
 
+    /**
+     * Starts the cell edit
+     * @param row - The row index
+     * @param col - The column index
+     * @param x - The x position
+     * @param y - The y position
+     */
     private startCellEdit(row: number, col: number, x: number, y: number): void {
         if (!this.cellEditor) return;
         
@@ -380,6 +604,9 @@ export class EventHandler {
         }
     }
 
+    /**
+     * Finishes the cell edit
+     */
     private finishCellEdit(): void {
         if (!this.editingCell || !this.cellEditor) return;
         
@@ -402,6 +629,10 @@ export class EventHandler {
         this.canvas.focus();
     }
 
+    /**
+     * Handles the key down event for the cell editor
+     * @param event - The keyboard event
+     */
     private handleEditorKeyDown(event: KeyboardEvent): void {
         if (event.key === 'Enter') {
             this.finishCellEdit();
@@ -412,6 +643,11 @@ export class EventHandler {
         }
     }
 
+    /**
+     * Parses the value
+     * @param value - The value
+     * @returns The parsed value
+     */
     private parseValue(value: string): any {
         if (value === '') return '';
         
@@ -429,6 +665,9 @@ export class EventHandler {
         return value;
     }
 
+    /**
+     * Deletes the selected cells
+     */
     private deleteSelectedCells(): void {
         const selection = this.grid.getSelection();
         if (!selection.isActive) return;
@@ -443,31 +682,44 @@ export class EventHandler {
         this.updateSelectionStats();
     }
 
+    /**
+     * Gets the cell rectangle
+     * @param row - The row index
+     * @param col - The column index
+     * @returns The cell rectangle
+     */
     private getCellRect(row: number, col: number): { x: number; y: number; width: number; height: number } | null {
         const dimensions = this.grid.getDimensions();
         const scrollPos = this.renderer.getScrollPosition();
+        const zoomFactor = this.renderer.getZoom();
         
         // Calculate x position by summing the widths of all columns before the target column
-        let x = dimensions.headerWidth - scrollPos.x;
+        let x = dimensions.headerWidth - scrollPos.x * zoomFactor;
         for (let i = 0; i < col; i++) {
-            x += this.grid.getColumnWidth(i);
+            x += this.grid.getColumnWidth(i) * zoomFactor;
         }
         
         // Calculate y position by summing the heights of all rows before the target row
-        let y = dimensions.headerHeight - scrollPos.y;
+        let y = dimensions.headerHeight - scrollPos.y * zoomFactor;
         for (let i = 0; i < row; i++) {
-            y += this.grid.getRowHeight(i);
+            y += this.grid.getRowHeight(i) * zoomFactor;
         }
         
-        const width = this.grid.getColumnWidth(col);
-        const height = this.grid.getRowHeight(row);
+        const width = this.grid.getColumnWidth(col) * zoomFactor;
+        const height = this.grid.getRowHeight(row) * zoomFactor;
         
         return { x, y, width, height };
     }
 
+    /**
+     * Ensures the cell is visible
+     * @param row - The row index
+     * @param col - The column index
+     */
     private ensureCellVisible(row: number, col: number): void {
         const dimensions = this.grid.getDimensions();
         const scrollPos = this.renderer.getScrollPosition();
+        const zoomFactor = this.renderer.getZoom();
         const cellRect = this.getCellRect(row, col);
         
         if (!cellRect) return;
@@ -494,27 +746,23 @@ export class EventHandler {
             }
             
             // Adjust to align with right edge of viewport
-            newScrollX = newScrollX - (this.canvas.width - dimensions.headerWidth);
+            newScrollX = newScrollX - (this.canvas.width - dimensions.headerWidth) / zoomFactor;
         }
         
         // Check vertical scrolling
         if (cellRect.y < dimensions.headerHeight) {
-            // Need to scroll up
             newScrollY = 0;
             for (let i = 0; i < row; i++) {
                 newScrollY += this.grid.getRowHeight(i);
             }
         } else if (cellRect.y + cellRect.height > this.canvas.height) {
-            // Need to scroll down
             newScrollY = 0;
             
-            // Sum heights up to and including the current row
             for (let i = 0; i <= row; i++) {
                 newScrollY += this.grid.getRowHeight(i);
             }
             
-            // Adjust to align with bottom edge of viewport
-            newScrollY = newScrollY - (this.canvas.height - dimensions.headerHeight);
+            newScrollY = newScrollY - (this.canvas.height - dimensions.headerHeight) / zoomFactor;
         }
         
         if (newScrollX !== scrollPos.x || newScrollY !== scrollPos.y) {
@@ -522,6 +770,9 @@ export class EventHandler {
         }
     }
 
+    /**
+     * Updates the selection stats
+     */
     private updateSelectionStats(): void {
         const statsElement = document.getElementById('selectionStats');
         if (!statsElement) return;
@@ -536,18 +787,22 @@ export class EventHandler {
         
         if (stats.count > 0) {
             statsElement.innerHTML = `
-                <div class="stat-item">Count: <span class="stat-value">${stats.count}</span></div>
-                <div class="stat-item">Sum: <span class="stat-value">${stats.sum.toLocaleString()}</span></div>
-                <div class="stat-item">Avg: <span class="stat-value">${stats.average.toFixed(2)}</span></div>
-                <div class="stat-item">Min: <span class="stat-value">${stats.min}</span></div>
-                <div class="stat-item">Max: <span class="stat-value">${stats.max}</span></div>
-                <div class="stat-item">Selected: <span class="stat-value">${selectedCells.length} cells</span></div>
+                <div class="stat-item" id="count">Count: <span class="stat-value">${stats.count}</span></div>
+                <div class="stat-item" id="sum">Sum: <span class="stat-value">${stats.sum.toLocaleString()}</span></div>
+                <div class="stat-item" id="avg">Avg: <span class="stat-value">${stats.average.toFixed(2)}</span></div>
+                <div class="stat-item" id="min">Min: <span class="stat-value">${stats.min}</span></div>
+                <div class="stat-item" id="max">Max: <span class="stat-value">${stats.max}</span></div>
+                <div class="stat-item" id="selected">Selected: <span class="stat-value">${selectedCells.length} cells</span></div>
             `
         } else {
-            statsElement.innerHTML = `<div class="stat-item">Selected: <span class="stat-value">${selectedCells.length} cells</span></div>`;
+            statsElement.innerHTML = `<div class="stat-item" id="selected">Selected: <span class="stat-value">${selectedCells.length} cells</span></div>`;
         }
     }
+    
 
+    /**
+     * Handles the resize event
+     */
     private handleResize(): void {
         // Use a timeout to debounce resize events
         if (this.resizeTimeout) {
@@ -559,7 +814,9 @@ export class EventHandler {
         }, 100);
     }
 
-    // Add new method to update cell editor position
+    /**
+     * Updates the cell editor position
+     */
     private updateCellEditorPosition(): void {
         if (!this.editingCell || !this.cellEditor) return;
         
@@ -572,6 +829,83 @@ export class EventHandler {
             this.cellEditor.style.top = (canvasRect.top + cellRect.y) + 'px';
             this.cellEditor.style.width = cellRect.width + 'px';
             this.cellEditor.style.height = cellRect.height + 'px';
+        }
+    }
+
+    /**
+     * Handles the calculation
+     * @param value - The value
+     */
+    public handleCalculation(value: string): void {
+        // it is in the format of "=SUM(A1:A10)"
+        const match = value.match(/([A-Z]+)(\d+):([A-Z]+)(\d+)/);
+        if(!match) return;
+
+        const startRow = match[2];
+        const startCol = match[1];
+        const endRow = match[4];
+        const endCol = match[3];
+
+        const startRowIndex = parseInt(startRow)-1;
+        const startColIndex = (startCol).charCodeAt(0) - 65;
+        const endRowIndex = parseInt(endRow)-1;
+        const endColIndex = (endCol).charCodeAt(0) - 65;        
+
+        const cellsInRange = this.grid.getCellsInRange(startRowIndex, startColIndex, endRowIndex, endColIndex);
+        // select the cells in the range
+        this.grid.getSelection().start(startRowIndex, startColIndex);
+        this.grid.getSelection().extend(endRowIndex, endColIndex);
+        this.renderer.render();
+        this.updateSelectionStats();
+
+        this.updateState(cellsInRange);
+    }
+
+    /**
+     * Updates the state
+     * @param sum - The sum
+     */
+    private updateState(cellsInRange: any[]): void {
+        const statsElement = document.getElementById('selectionStats');
+        if (!statsElement) return;
+
+ 
+        const count = cellsInRange.length;
+        let sum = 0;
+        for(const cell of cellsInRange){
+            sum += parseInt(cell.value);
+        }
+        const avg = count > 0 ? sum / count : 0;
+        
+        // Find min and max
+        let min = Number.MAX_VALUE;
+        let max = Number.MIN_VALUE;
+        
+        for (const cell of cellsInRange) {
+            const value = cell.getNumericValue();
+            if (value !== null) {
+                min = Math.min(min, value);
+                max = Math.max(max, value);
+            }
+        }
+        
+        // If no valid numbers were found
+        if (min === Number.MAX_VALUE) min = 0;
+        if (max === Number.MIN_VALUE) max = 0;
+        
+        // Update the stats display with all information
+        if(count > 0){
+            statsElement.innerHTML = `
+                <div class="stat-item" id="count">Count: <span class="stat-value">${count}</span></div>
+                <div class="stat-item" id="sum">Sum: <span class="stat-value">${sum.toLocaleString()}</span></div>
+                <div class="stat-item" id="avg">Avg: <span class="stat-value">${avg.toFixed(2)}</span></div>
+                <div class="stat-item" id="min">Min: <span class="stat-value">${min}</span></div>
+                <div class="stat-item" id="max">Max: <span class="stat-value">${max}</span></div>
+                <div class="stat-item" id="selected">Selected: <span class="stat-value">${count} cells</span></div>
+            `;
+            }
+        else{
+            statsElement.innerHTML = `<div class="stat-item" id="selected">Selected: <span class="stat-value">${count} cells</span></div>`;
         }
     }
 }

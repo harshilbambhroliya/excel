@@ -1,7 +1,15 @@
 // src/utils/MathUtils.ts
 import { Cell } from '../models/Cell.js';
 
+/**
+ * Utility class for mathematical operations on cells
+ */
 export class MathUtils {
+    /**
+     * Calculates statistical values from an array of cells
+     * @param {Cell[]} cells Array of cells to calculate statistics from
+     * @returns {Object} Object containing count, sum, min, max, and average values
+     */
     public static calculateStats(cells: Cell[]): {
         count: number;
         sum: number;

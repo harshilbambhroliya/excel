@@ -2,26 +2,61 @@
 import { Cell } from '../models/Cell.js';
 import { IDataRecord } from '../types/interfaces.js';
 
+/**
+ * Manages the data in the grid
+ */
 export class DataManager {
+    /**
+     * The data
+     */
     private data: Map<string, Cell> = new Map();
+
+    /**
+     * The maximum number of rows
+     */
     private maxRows: number = 100000;
+
+    /**
+     * The maximum number of columns
+     */
     private maxCols: number = 500;
 
+    /**
+     * The constructor
+     */
     constructor() {
         this.initializeEmptyGrid();
     }
 
+    /**
+     * Initializes an empty grid
+     */
     private initializeEmptyGrid(): void {
     }
 
+    /**
+     * Gets the cell key
+     * @param row - The row index
+     * @param col - The column index
+     * @returns The cell key
+     */
     private getCellKey(row: number, col: number): string {
         return `${row}-${col}`;
     }
 
+    /**
+     * Clears the data
+     */
     public clear(): void {
         this.data.clear();
     }
 
+    /**
+     * Gets the cell
+     * @param row - The row index
+     * @param col - The column index
+     * @returns The cell
+     */
     public getCell(row: number, col: number): Cell {
         if (row < 0 || row >= this.maxRows || col < 0 || col >= this.maxCols) {
             throw new Error('Cell position out of bounds');
@@ -38,6 +73,12 @@ export class DataManager {
         return cell;
     }
 
+    /**
+     * Sets the cell value
+     * @param row - The row index
+     * @param col - The column index
+     * @param value - The value
+     */
     public setCell(row: number, col: number, value: any): void {
         const cell = this.getCell(row, col);
         if(row == 0){
@@ -46,6 +87,10 @@ export class DataManager {
         cell.setValue(value);
     }
 
+    /**
+     * Loads the data
+     * @param records - The records
+     */
     public loadData(records: IDataRecord[]): void {
         // Clear existing data
         this.data.clear();
@@ -69,6 +114,14 @@ export class DataManager {
         });
     }
 
+    /**
+     * Gets the cells in range
+     * @param startRow - The starting row index
+     * @param startCol - The starting column index
+     * @param endRow - The ending row index
+     * @param endCol - The ending column index
+     * @returns The cells in range
+     */
     public getCellsInRange(startRow: number, startCol: number, endRow: number, endCol: number): Cell[] {
         const cells: Cell[] = [];
         
@@ -83,10 +136,18 @@ export class DataManager {
         return cells;
     }
 
+    /**
+     * Gets the maximum number of rows
+     * @returns The maximum number of rows
+     */
     public getMaxRows(): number {
         return this.maxRows;
     }
 
+    /**
+     * Gets the maximum number of columns
+     * @returns The maximum number of columns
+     */
     public getMaxCols(): number {
         return this.maxCols;
     }

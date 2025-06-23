@@ -1,28 +1,74 @@
 // src/core/ScrollbarManager.ts
+/**
+ * Manages the scrollbars in the grid
+ */
+
 export class ScrollbarManager {
+    /** @type {HTMLElement} The container element for the scrollbars */
     private container: HTMLElement;
+
+    /** @type {HTMLElement} The horizontal scrollbar element */
     private horizontalScrollbar: HTMLElement;
+
+    /** @type {HTMLElement} The vertical scrollbar element */
     private verticalScrollbar: HTMLElement;
+
+    /** @type {HTMLElement} The horizontal thumb element */
     private horizontalThumb: HTMLElement;
+
+    /** @type {HTMLElement} The vertical thumb element */
     private verticalThumb: HTMLElement;
+    
+    /** @type {Function} The callback function to be called when the scroll position changes */
     private onScrollCallback: (scrollX: number, scrollY: number) => void;
     
+    /** @type {number} The maximum scroll position in the X direction */
     private maxScrollX: number = 0;
+
+    /** @type {number} The maximum scroll position in the Y direction */
     private maxScrollY: number = 0;
+
+    /** @type {number} The current scroll position in the X direction */
     private currentScrollX: number = 0;
+
+    /** @type {number} The current scroll position in the Y direction */
     private currentScrollY: number = 0;
+
+    /** @type {number} The width of the viewport */
     private viewportWidth: number = 0;
+
+    /** @type {number} The height of the viewport */
     private viewportHeight: number = 0;
+
+    /** @type {number} The width of the content */
     private contentWidth: number = 0;
+
+    /** @type {number} The height of the content */
     private contentHeight: number = 0;
     
+    /** @type {boolean} Whether the horizontal scrollbar is being dragged */
     private isDraggingHorizontal: boolean = false;
+
+    /** @type {boolean} Whether the vertical scrollbar is being dragged */
     private isDraggingVertical: boolean = false;
+
+    /** @type {number} The starting X position of the horizontal scrollbar */
     private dragStartX: number = 0;
+    
+    /** @type {number} The starting Y position of the vertical scrollbar */
     private dragStartY: number = 0;
+
+    /** @type {number} The starting scroll position in the X direction */
     private dragStartScrollX: number = 0;
+
+    /** @type {number} The starting scroll position in the Y direction */
     private dragStartScrollY: number = 0;
 
+    /**
+     * Initializes a new ScrollbarManager instance
+     * @param {HTMLElement} container The container element for the scrollbars
+     * @param {Function} onScroll The callback function to be called when the scroll position changes
+     */
     constructor(container: HTMLElement, onScroll: (scrollX: number, scrollY: number) => void) {
         this.container = container;
         this.onScrollCallback = onScroll;
@@ -35,6 +81,9 @@ export class ScrollbarManager {
         this.setupEventListeners();
     }
 
+    /**
+     * Sets up event listeners for the scrollbars
+     */
     private setupEventListeners(): void {
         // Horizontal scrollbar events
         this.horizontalThumb.addEventListener('mousedown', this.handleHorizontalMouseDown.bind(this));
@@ -53,6 +102,10 @@ export class ScrollbarManager {
         this.verticalThumb.addEventListener('selectstart', (e) => e.preventDefault());
     }
 
+    /**
+     * Handles the mouse down event for the horizontal scrollbar
+     * @param {MouseEvent} event The mouse down event
+     */
     private handleHorizontalMouseDown(event: MouseEvent): void {
         event.preventDefault();
         this.isDraggingHorizontal = true;
@@ -61,6 +114,10 @@ export class ScrollbarManager {
         document.body.style.userSelect = 'none';
     }
 
+    /**
+     * Handles the mouse down event for the vertical scrollbar
+     * @param {MouseEvent} event The mouse down event
+     */
     private handleVerticalMouseDown(event: MouseEvent): void {
         event.preventDefault();
         this.isDraggingVertical = true;
@@ -69,6 +126,10 @@ export class ScrollbarManager {
         document.body.style.userSelect = 'none';
     }
 
+    /**
+     * Handles the mouse move event for the scrollbars
+     * @param {MouseEvent} event The mouse move event
+     */
     private handleMouseMove(event: MouseEvent): void {
         if (this.isDraggingHorizontal) {
             const deltaX = event.clientX - this.dragStartX;
@@ -99,12 +160,19 @@ export class ScrollbarManager {
         }
     }
 
+    /**
+     * Handles the mouse up event for the scrollbars
+     */
     private handleMouseUp(): void {
         this.isDraggingHorizontal = false;
         this.isDraggingVertical = false;
         document.body.style.userSelect = '';
     }
 
+    /**
+     * Handles the click event for the horizontal scrollbar
+     * @param {MouseEvent} event The click event
+     */
     private handleHorizontalTrackClick(event: MouseEvent): void {
         if (event.target === this.horizontalThumb) return;
         
@@ -118,6 +186,10 @@ export class ScrollbarManager {
         this.setScrollX(newScrollX);
     }
 
+    /**
+     * Handles the click event for the vertical scrollbar
+     * @param {MouseEvent} event The click event
+     */
     private handleVerticalTrackClick(event: MouseEvent): void {
         if (event.target === this.verticalThumb) return;
         
@@ -131,6 +203,13 @@ export class ScrollbarManager {
         this.setScrollY(newScrollY);
     }
 
+    /**
+     * Updates the scrollbars based on the viewport and content dimensions
+     * @param {number} viewportWidth The width of the viewport
+     * @param {number} viewportHeight The height of the viewport
+     * @param {number} contentWidth The width of the content
+     * @param {number} contentHeight The height of the content
+     */
     public updateScrollbars(viewportWidth: number, viewportHeight: number, contentWidth: number, contentHeight: number): void {
         this.viewportWidth = viewportWidth;
         this.viewportHeight = viewportHeight;
@@ -144,6 +223,9 @@ export class ScrollbarManager {
         this.updateVerticalScrollbar();
     }
 
+    /**
+     * Updates the horizontal scrollbar based on the viewport and content dimensions
+     */
     private updateHorizontalScrollbar(): void {
         const needsScrollbar = this.maxScrollX > 0;
         this.horizontalScrollbar.style.display = needsScrollbar ? 'block' : 'none';
@@ -164,6 +246,9 @@ export class ScrollbarManager {
         }
     }
 
+    /**
+     * Updates the vertical scrollbar based on the viewport and content dimensions
+     */
     private updateVerticalScrollbar(): void {
         const needsScrollbar = this.maxScrollY > 0;
         this.verticalScrollbar.style.display = needsScrollbar ? 'block' : 'none';
@@ -184,18 +269,31 @@ export class ScrollbarManager {
         }
     }
 
+    /**
+     * Sets the scroll position in the X direction
+     * @param {number} scrollX The new scroll position in the X direction
+     */
     public setScrollX(scrollX: number): void {
         this.currentScrollX = Math.max(0, Math.min(this.maxScrollX, scrollX));
         this.updateHorizontalScrollbar();
         this.onScrollCallback(this.currentScrollX, this.currentScrollY);
     }
 
+    /**
+     * Sets the scroll position in the Y direction
+     * @param {number} scrollY The new scroll position in the Y direction
+     */
     public setScrollY(scrollY: number): void {
         this.currentScrollY = Math.max(0, Math.min(this.maxScrollY, scrollY));
         this.updateVerticalScrollbar();
         this.onScrollCallback(this.currentScrollX, this.currentScrollY);
     }
 
+    /**
+     * Sets the scroll position in both directions
+     * @param {number} scrollX The new scroll position in the X direction
+     * @param {number} scrollY The new scroll position in the Y direction
+     */
     public setScroll(scrollX: number, scrollY: number): void {
         this.currentScrollX = Math.max(0, Math.min(this.maxScrollX, scrollX));
         this.currentScrollY = Math.max(0, Math.min(this.maxScrollY, scrollY));
@@ -204,10 +302,19 @@ export class ScrollbarManager {
         this.onScrollCallback(this.currentScrollX, this.currentScrollY);
     }
 
+    /**
+     * Gets the current scroll position
+     * @returns {Object} An object containing the current scroll position in the X and Y directions
+     */
     public getScrollPosition(): { x: number; y: number } {
         return { x: this.currentScrollX, y: this.currentScrollY };
     }
 
+    /**
+     * Scrolls the content by a given amount
+     * @param {number} deltaX The amount to scroll in the X direction
+     * @param {number} deltaY The amount to scroll in the Y direction
+     */
     public scrollBy(deltaX: number, deltaY: number): void {
         this.setScroll(this.currentScrollX + deltaX, this.currentScrollY + deltaY);
     }
