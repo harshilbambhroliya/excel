@@ -27,14 +27,24 @@ export class ResizeRowCommand extends Command {
     private oldHeight: number;
 
     /**
-     * The constructor
+     * The default row height to revert to when undoing
      */
-    constructor(grid: Grid, rowIndex: number, newHeight: number) {
+    private defaultHeight: number;
+
+    /**
+     * The constructor
+     * @param grid - The grid
+     * @param rowIndex - The row index
+     * @param newHeight - The new height
+     * @param defaultHeight - The default height to use when undoing (optional)
+     */
+    constructor(grid: Grid, rowIndex: number, newHeight: number, defaultHeight?: number) {
         super();
         this.grid = grid;
         this.rowIndex = rowIndex;
         this.newHeight = newHeight;
         this.oldHeight = grid.getRowHeight(rowIndex);
+        this.defaultHeight = defaultHeight || this.oldHeight;
     }
 
     /**
@@ -48,6 +58,7 @@ export class ResizeRowCommand extends Command {
      * Undoes the command
      */
     public undo(): void {
-        this.grid.setRowHeight(this.rowIndex, this.oldHeight);
+        // When undoing, revert to default height instead of previous height
+        this.grid.setRowHeight(this.rowIndex, this.defaultHeight);
     }
 }

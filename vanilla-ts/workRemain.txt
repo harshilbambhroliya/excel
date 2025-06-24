@@ -1,1 +1,2 @@
-(1) rows and columns collapas behind header
+
+// dynamic column and row render based on data.

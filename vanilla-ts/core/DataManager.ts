@@ -11,7 +11,7 @@ export class DataManager {
      */
     private data: Map<string, Cell> = new Map();
 
-    /**
+    /** 
      * The maximum number of rows
      */
     private maxRows: number = 100000;
@@ -19,7 +19,7 @@ export class DataManager {
     /**
      * The maximum number of columns
      */
-    private maxCols: number = 16384;
+    private maxCols: number = 500;
 
     /**
      * The constructor
@@ -94,8 +94,9 @@ export class DataManager {
     public loadData(records: IDataRecord[]): void {
         // Clear existing data
         this.data.clear();
-        this.maxRows = records.length + 1;
         
+        this.maxRows = records.length + 1; // +1 for header row
+
         // Set headers
         this.setCell(0, 0, 'ID');
         this.setCell(0, 1, 'First Name');

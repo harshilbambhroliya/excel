@@ -144,9 +144,6 @@ export class Grid {
             const oldWidth = this.columns[colIndex].width;
             const newWidth = Math.max(50, width); // Ensure minimum width
             this.columns[colIndex].setWidth(newWidth);
-            
-            // Log for debugging
-            console.log(`Column ${colIndex} width changed from ${oldWidth} to ${newWidth}`);
         }
     }
 
@@ -215,6 +212,17 @@ export class Grid {
      */
     public loadData(data: any[]): void {
         this.dataManager.loadData(data);
+        this.updateGridDimensions();
+    }
+
+    /**
+     * Reinitializes rows and columns based on current DataManager dimensions.
+     * This should be called after data is loaded.
+     */
+    private updateGridDimensions(): void {
+        this.rows = [];
+        this.columns = [];
+        this.initializeRowsAndColumns();
     }
 
     /**
@@ -282,5 +290,21 @@ export class Grid {
         }
         
         return cells;
+    }
+
+    /**
+     * Clears only row and column header selections without affecting the cell selection
+     */
+    public clearHeaderSelections(): void {
+        // Deselect all row headers
+        this.rows.forEach(row => row.deselect());
+        
+        // Deselect all column headers
+        this.columns.forEach(col => col.deselect());
+    }
+
+    public selectAll(): void {
+        this.rows.forEach(row => row.select());
+        this.columns.forEach(col => col.select());
     }
 }

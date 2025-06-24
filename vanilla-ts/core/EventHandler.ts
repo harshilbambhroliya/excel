@@ -7,7 +7,6 @@ import { ResizeColumnCommand } from '../commands/ResizeColumnCommand.js';
 import { ResizeRowCommand } from '../commands/ResizeRowCommand.js';
 import { MathUtils } from '../utils/MathUtils.js';
 import { ScrollbarManager } from './ScrollbarManager.js';
-
 /**
  * EventHandler class
  * @description Handles all the events for the grid
@@ -32,7 +31,6 @@ export class EventHandler {
      * The command manager
      */
     private commandManager: CommandManager;
-    
     /**
      * Whether the mouse is down
      */
@@ -150,7 +148,7 @@ export class EventHandler {
         this.cellEditor.style.padding = '2px';
         // this.cellEditor.style.fontSize = '16px';
         this.cellEditor.style.fontFamily = 'Calibri';
-        this.cellEditor.style.zIndex = '1000';
+        // this.cellEditor.style.zIndex = '10';
         this.cellEditor.style.outline = 'none';
         this.cellEditor.style.boxSizing = 'border-box';
         this.cellEditor.style.margin = '0';
@@ -191,7 +189,31 @@ export class EventHandler {
         
         // Check if clicking on row header
         if (event.offsetX < dimensions.headerWidth && event.offsetY >= dimensions.headerHeight) {
-            const row = Math.floor((event.offsetY - dimensions.headerHeight + this.renderer.getScrollPosition().y) / dimensions.rowHeight);
+            // Get the zoom factor to properly adjust calculations
+            const zoomFactor = this.renderer.getZoom();
+            const scrollY = this.renderer.getScrollPosition().y;
+            
+            // Use renderer's helper method to get row position accounting for zoom
+            let row = -1;
+            const adjustedY = event.offsetY;
+            
+            // We'll use a method similar to getCellAtPosition but for row headers
+            let currentY = dimensions.headerHeight;
+            
+            for (let i = 0; i < this.grid.getMaxRows(); i++) {
+                // When calculating header positions, we need to account for zoom
+                const rowHeight = this.grid.getRowHeight(i) * zoomFactor;
+                const rowTop = currentY - (scrollY * zoomFactor);
+                const rowBottom = rowTop + rowHeight;
+                
+                if (adjustedY >= rowTop && adjustedY < rowBottom) {
+                    row = i;
+                    break;
+                }
+                
+                currentY += rowHeight;
+            }
+            
             if (row >= 0 && row < this.grid.getMaxRows()) {
                 this.grid.selectRow(row);
                 this.renderer.render();
@@ -202,7 +224,30 @@ export class EventHandler {
         
         // Check if clicking on column header
         if (event.offsetY < dimensions.headerHeight && event.offsetX >= dimensions.headerWidth) {
-            const col = Math.floor((event.offsetX - dimensions.headerWidth + this.renderer.getScrollPosition().x) / dimensions.columnWidth);
+            // Get the zoom factor to properly adjust calculations
+            const zoomFactor = this.renderer.getZoom();
+            const scrollX = this.renderer.getScrollPosition().x;
+            
+            // Use a method similar to getCellAtPosition but for column headers
+            let col = -1;
+            const adjustedX = event.offsetX;
+            
+            let currentX = dimensions.headerWidth;
+            
+            for (let i = 0; i < this.grid.getMaxCols(); i++) {
+                // When calculating header positions, we need to account for zoom
+                const colWidth = this.grid.getColumnWidth(i) * zoomFactor;
+                const colLeft = currentX - (scrollX * zoomFactor);
+                const colRight = colLeft + colWidth;
+                
+                if (adjustedX >= colLeft && adjustedX < colRight) {
+                    col = i;
+                    break;
+                }
+                
+                currentX += colWidth;
+            }
+            
             if (col >= 0 && col < this.grid.getMaxCols()) {
                 this.grid.selectColumn(col);
                 this.renderer.render();
@@ -211,10 +256,12 @@ export class EventHandler {
             }
         }
         
-        // Check if clicking on header corner (clear selection)
+        // Check if clicking on header corner (select all)
         if (event.offsetX < dimensions.headerWidth && event.offsetY < dimensions.headerHeight) {
             this.grid.clearAllSelections();
+            this.grid.selectAll();
             this.renderer.render();
+            this.updateSelectionStats();
             return;
         }
         
@@ -222,9 +269,16 @@ export class EventHandler {
         const cellPos = this.renderer.getCellAtPosition(event.offsetX, event.offsetY);
         if (cellPos) {
             this.finishCellEdit();
-            // Clear any selected rows or columns before selecting a cell
+            
+            // Clear all selections (cell and header)
             this.grid.clearAllSelections();
+            
+            // Start a new cell selection
             this.grid.getSelection().start(cellPos.row, cellPos.col);
+            
+            // Highlight the corresponding row and column headers
+            this.highlightHeadersForCell(cellPos.row, cellPos.col);
+            
             this.renderer.render();
             this.updateSelectionStats();
         } else {
@@ -239,10 +293,10 @@ export class EventHandler {
      * @param event - The mouse event
      */
     private handleMouseMove(event: MouseEvent): void {
-        const dimensions = this.grid.getDimensions();
         
         // Update cursor for resize handles
         if (!this.isMouseDown) {
+            // Check if cursor is over a resize handle, accounting for zoom
             const resizeTarget = this.getResizeTarget(event.offsetX, event.offsetY);
             this.canvas.style.cursor = resizeTarget ? 
                 (resizeTarget.type === 'column' ? 'col-resize' : 'row-resize') : 'cell';
@@ -259,7 +313,25 @@ export class EventHandler {
         const cellPos = this.renderer.getCellAtPosition(event.offsetX, event.offsetY);
         if (cellPos && this.grid.getSelection().isActive) {
             this.isDragging = true;
+            
+            // Store previous selection end coordinates
+            const prevEndRow = this.grid.getSelection().endRow;
+            const prevEndCol = this.grid.getSelection().endCol;
+            
+            // Extend the selection
             this.grid.getSelection().extend(cellPos.row, cellPos.col);
+            
+            // If the end cell changed, update header highlighting
+            if (prevEndRow !== this.grid.getSelection().endRow || 
+                prevEndCol !== this.grid.getSelection().endCol) {
+                
+                // Clear all header selections first
+                this.grid.clearHeaderSelections();
+                
+                // Highlight headers for the current selection range
+                this.highlightHeadersForSelection();
+            }
+            
             this.renderer.render();
             this.updateSelectionStats();
         }
@@ -344,17 +416,57 @@ export class EventHandler {
                     newCol = Math.max(0, newCol - 1);
                     break;
                 case 'ArrowUp':
-                    newRow = 0; // First row
-                    break;
+                    event.preventDefault();
+                    // Extend selection upwards
+                    selection.extend(Math.max(0, selection.endRow - 1), selection.endCol);
+                    
+                    // Update header highlighting
+                    this.grid.clearHeaderSelections();
+                    this.highlightHeadersForSelection();
+                    
+                    this.ensureCellVisible(selection.endRow, selection.endCol);
+                    this.renderer.render();
+                    this.updateSelectionStats();
+                    return;
                 case 'ArrowDown':
-                    newRow = this.grid.getMaxRows() - 1; // Last row
-                    break;
+                    event.preventDefault();
+                    // Extend selection downwards
+                    selection.extend(Math.min(this.grid.getMaxRows() - 1, selection.endRow + 1), selection.endCol);
+                    
+                    // Update header highlighting
+                    this.grid.clearHeaderSelections();
+                    this.highlightHeadersForSelection();
+                    
+                    this.ensureCellVisible(selection.endRow, selection.endCol);
+                    this.renderer.render();
+                    this.updateSelectionStats();
+                    return;
                 case 'ArrowLeft':
-                    newCol = 0; // First column
-                    break;
+                    event.preventDefault();
+                    // Extend selection to the left
+                    selection.extend(selection.endRow, Math.max(0, selection.endCol - 1));
+                    
+                    // Update header highlighting
+                    this.grid.clearHeaderSelections();
+                    this.highlightHeadersForSelection();
+                    
+                    this.ensureCellVisible(selection.endRow, selection.endCol);
+                    this.renderer.render();
+                    this.updateSelectionStats();
+                    return;
                 case 'ArrowRight':
-                    newCol = this.grid.getMaxCols() - 1; // Last column
-                    break;
+                    event.preventDefault();
+                    // Extend selection to the right
+                    selection.extend(selection.endRow, Math.min(this.grid.getMaxCols() - 1, selection.endCol + 1));
+                    
+                    // Update header highlighting
+                    this.grid.clearHeaderSelections();
+                    this.highlightHeadersForSelection();
+                    
+                    this.ensureCellVisible(selection.endRow, selection.endCol);
+                    this.renderer.render();
+                    this.updateSelectionStats();
+                    return;
                 default:
                     break;
             }
@@ -372,105 +484,29 @@ export class EventHandler {
                     this.updateSelectionStats();}
                     break;
                 case 'ArrowRight':
-                    // Extend selection to the right until non-empty cell or edge
-                   { event.preventDefault();
-                    let rightCol = selection.endCol;
-                    let foundNonEmpty = false;
                     
-                    // Start from one column after the current selection end
-                    for (let col = selection.endCol + 1; col < this.grid.getMaxCols(); col++) {
-                        const cell = this.grid.getCell(selection.endRow, col);
-                        
-                        // // If we find a non-empty cell, select up to it (inclusive)
-                        if (cell ) {
-                            rightCol = col;
-                            foundNonEmpty = true;
-                            break;
-                        }
+                   {
+                    event.preventDefault();
+                    // go to the last column
+                    for(let i = 0; i < this.grid.getMaxCols(); i++){
+                        newCol = i;
                     }
-                    
-                    // Extend the selection
-                    selection.extend(selection.endRow, rightCol);
-                    this.ensureCellVisible(selection.endRow, rightCol);
-                    this.renderer.render();
-                    this.updateSelectionStats();
-                    return;}
+                    return;
+                   }
                     
                 case 'ArrowLeft':
-                    // Extend selection to the left until non-empty cell or edge
+                    // go to the first column
                     {event.preventDefault();
-                    let leftCol = selection.endCol;
-                    let foundNonEmpty = false;
-                    
-                    // Start from one column before the current selection end
-                    for (let col = selection.endCol - 1; col >= 0; col--) {
-                        const cell = this.grid.getCell(selection.endRow, col);
-                        
-                        // If we find a non-empty cell, select up to it (inclusive)
-                        if (cell) {
-                            leftCol = col;
-                            foundNonEmpty = true;
-                            break;
-                        }
                     }
-                    
-                   
-                    // Extend the selection
-                    selection.extend(selection.endRow, leftCol);
-                    this.ensureCellVisible(selection.endRow, leftCol);
-                    this.renderer.render();
-                    this.updateSelectionStats();
-                    return;}
                     
                 case 'ArrowDown':
-                    // Extend selection downward until non-empty cell or edge
+                    // go to the last row
                    { event.preventDefault();
-                    let downRow = selection.endRow;
-                    let foundNonEmpty = false;
-                    
-                    // Start from one row after the current selection end
-                    for (let row = selection.endRow + 1; row < this.grid.getMaxRows(); row++) {
-                        const cell = this.grid.getCell(row, selection.endCol);
-                        
-                        // If we find a non-empty cell, select up to it (inclusive)
-                        if (cell) {
-                            downRow = row;
-                            foundNonEmpty = true;
-                            break;
-                        }
-                    }
-                    
-                    
-                    // Extend the selection
-                    selection.extend(downRow, selection.endCol);
-                    this.ensureCellVisible(downRow, selection.endCol);
-                    this.renderer.render();
-                    this.updateSelectionStats();
-                    return;
+                   
                     }
                 case 'ArrowUp':
-                    // Extend selection upward until non-empty cell or edge
-                   { event.preventDefault();
-                    let upRow = selection.endRow;
-                    let foundNonEmpty = false;
-                    
-                    // Start from one row before the current selection end
-                    for (let row = selection.endRow - 1; row >= 0; row--) {
-                        const cell = this.grid.getCell(row, selection.endCol);
-                        
-                        // If we find a non-empty cell, select up to it (inclusive)
-                        if (cell) {
-                            upRow = row;
-                            foundNonEmpty = true;
-                            break;
-                        }
-                    }
-                    // Extend the selection
-                    selection.extend(upRow, selection.endCol);
-                    this.ensureCellVisible(upRow, selection.endCol);
-                    this.renderer.render();
-                    this.updateSelectionStats();
-                    return;}
+                    // go to the first row
+                   { }
                     
                 default:
             }
@@ -509,8 +545,19 @@ export class EventHandler {
         }
         
         event.preventDefault();
+        
+        // Clear all selections including headers
+        this.grid.clearAllSelections();
+        
+        // Start new selection
         selection.start(newRow, newCol);
+        
+        // Highlight corresponding headers for the new cell
+        this.highlightHeadersForCell(newRow, newCol);
+        
+        // Make sure the cell is visible
         this.ensureCellVisible(newRow, newCol);
+        
         this.renderer.render();
         this.updateSelectionStats();
     }
@@ -524,22 +571,27 @@ export class EventHandler {
     private getResizeTarget(x: number, y: number): { type: 'row' | 'column'; index: number } | null {
         const dimensions = this.grid.getDimensions();
         const tolerance = 3;
+        const zoomFactor = this.renderer.getZoom();
         
         // Check column resize handles
         if (y <= dimensions.headerHeight) {
             const scrollX = this.renderer.getScrollPosition().x;
-            let currentX = dimensions.headerWidth - scrollX;
+            let currentX = dimensions.headerWidth;
             
+            // Apply zoom factor to position calculations
             for (let col = 0; col < this.grid.getMaxCols(); col++) {
-                const colWidth = this.grid.getColumnWidth(col);
+                const colWidth = this.grid.getColumnWidth(col) * zoomFactor;
                 currentX += colWidth;
                 
-                if (Math.abs(x - currentX) <= tolerance) {
+                // Adjust position based on scroll and zoom
+                const adjustedX = currentX - (scrollX * zoomFactor);
+                
+                if (Math.abs(x - adjustedX) <= tolerance * zoomFactor) {
                     return { type: 'column', index: col };
                 }
                 
                 // Break early if we're past the viewport
-                if (currentX > x + tolerance + dimensions.columnWidth) {
+                if (adjustedX > x + tolerance * zoomFactor + dimensions.columnWidth * zoomFactor) {
                     break;
                 }
             }
@@ -548,18 +600,22 @@ export class EventHandler {
         // Check row resize handles
         if (x <= dimensions.headerWidth) {
             const scrollY = this.renderer.getScrollPosition().y;
-            let currentY = dimensions.headerHeight - scrollY;
+            let currentY = dimensions.headerHeight;
             
+            // Apply zoom factor to position calculations
             for (let row = 0; row < this.grid.getMaxRows(); row++) {
-                const rowHeight = this.grid.getRowHeight(row);
+                const rowHeight = this.grid.getRowHeight(row) * zoomFactor;
                 currentY += rowHeight;
                 
-                if (Math.abs(y - currentY) <= tolerance) {
+                // Adjust position based on scroll and zoom
+                const adjustedY = currentY - (scrollY * zoomFactor);
+                
+                if (Math.abs(y - adjustedY) <= tolerance * zoomFactor) {
                     return { type: 'row', index: row };
                 }
                 
                 // Break early if we're past the viewport
-                if (currentY > y + tolerance + dimensions.rowHeight) {
+                if (adjustedY > y + tolerance * zoomFactor + dimensions.rowHeight * zoomFactor) {
                     break;
                 }
             }
@@ -576,36 +632,36 @@ export class EventHandler {
         if (!this.resizeTarget) return;
         
         const dimensions = this.grid.getDimensions();
-        const delta = this.resizeTarget.type === 'column' ? 
+        const zoomFactor = this.renderer.getZoom();
+        
+        // Calculate the drag delta, accounting for zoom
+        const rawDelta = this.resizeTarget.type === 'column' ? 
             event.offsetX - this.lastMousePos.x : 
             event.offsetY - this.lastMousePos.y;
+            
+        // Adjust delta based on zoom factor to ensure resize works properly at any zoom level
+        const delta = rawDelta / zoomFactor;
         
         if (this.resizeTarget.type === 'column') {
             const currentWidth = this.grid.getColumnWidth(this.resizeTarget.index);
             const newWidth = Math.max(50, currentWidth + delta);
-            const command = new ResizeColumnCommand(this.grid, this.resizeTarget.index, newWidth);
+            const command = new ResizeColumnCommand(this.grid, this.resizeTarget.index, newWidth, dimensions.columnWidth);
             this.commandManager.executeCommand(command);
-            
-            // Force scrollbar manager to update if available
-            if (this.scrollbarManager) {
-                // Force renderer to recalculate positions
-                this.renderer.render();
-            }
         } else {
             const currentHeight = this.grid.getRowHeight(this.resizeTarget.index);
             const newHeight = Math.max(20, currentHeight + delta);
-            const command = new ResizeRowCommand(this.grid, this.resizeTarget.index, newHeight);
+            const command = new ResizeRowCommand(this.grid, this.resizeTarget.index, newHeight, dimensions.rowHeight);
             this.commandManager.executeCommand(command);
-            
-            // Force scrollbar manager to update if available
-            if (this.scrollbarManager) {
-                // Force renderer to recalculate positions
-                this.renderer.render();
-            }
         }
         
         this.lastMousePos = { x: event.offsetX, y: event.offsetY };
-        this.renderer.render();
+        
+        // Update the UI
+        if (this.scrollbarManager) {
+            requestAnimationFrame(() => {
+                this.renderer.render();
+            });
+        }
     }
 
     /**
@@ -742,6 +798,7 @@ export class EventHandler {
         const zoomFactor = this.renderer.getZoom();
         
         // Calculate x position by summing the widths of all columns before the target column
+        // Apply zoom to all calculations to ensure proper positioning
         let x = dimensions.headerWidth - scrollPos.x * zoomFactor;
         for (let i = 0; i < col; i++) {
             x += this.grid.getColumnWidth(i) * zoomFactor;
@@ -753,6 +810,7 @@ export class EventHandler {
             y += this.grid.getRowHeight(i) * zoomFactor;
         }
         
+        // Apply zoom to width and height to ensure correct sizing
         const width = this.grid.getColumnWidth(col) * zoomFactor;
         const height = this.grid.getRowHeight(row) * zoomFactor;
         
@@ -826,6 +884,7 @@ export class EventHandler {
         if (!statsElement) return;
         
         const selectedCells = this.grid.getCellsInSelection();
+        
         if (selectedCells.length === 0) {
             statsElement.textContent = '';
             return;
@@ -868,18 +927,19 @@ export class EventHandler {
     private updateCellEditorPosition(): void {
         if (!this.editingCell || !this.cellEditor) return;
         
+        // Get the cell rectangle which already accounts for zoom
         const cellRect = this.getCellRect(this.editingCell.row, this.editingCell.col);
         
         if (cellRect) {
             const canvasRect = this.canvas.getBoundingClientRect();
-            
             const zoomFactor = this.renderer.getZoom();
             
-            // Scale cellRect values by zoomFactor for HTML element positioning and sizing
-            this.cellEditor.style.left = (canvasRect.left + cellRect.x * zoomFactor) + 'px';
-            this.cellEditor.style.top = (canvasRect.top + cellRect.y * zoomFactor) + 'px';
-            this.cellEditor.style.width = (cellRect.width * zoomFactor) + 'px';
-            this.cellEditor.style.height = (cellRect.height * zoomFactor) + 'px';
+            // Position the editor at the exact cell position
+            // cellRect already includes zoom factor adjustments
+            this.cellEditor.style.left = (canvasRect.left + cellRect.x) + 'px';
+            this.cellEditor.style.top = (canvasRect.top + cellRect.y) + 'px';
+            this.cellEditor.style.width = cellRect.width + 'px';
+            this.cellEditor.style.height = cellRect.height + 'px';
             
             // Update font size based on zoom factor
             this.cellEditor.style.fontSize = (this.BASE_EDITOR_FONT_SIZE * zoomFactor) + 'px';
@@ -1073,4 +1133,68 @@ export class EventHandler {
     // Properties for tracking touch for double-tap detection
     private lastTouchPosition: { x: number, y: number } | null = null;
     private lastTouchTime: number = 0;
+
+    /**
+     * Updates the resize handles when zoom changes
+     * This is called from the renderer when zoom changes
+     */
+    public updateResizeHandlesOnZoom(): void {
+        // Clear any active resize operations if we're in the middle of one
+        if (this.isResizing) {
+            this.isResizing = false;
+            this.resizeTarget = null;
+            this.canvas.style.cursor = 'cell';
+        }
+        
+        // Force a re-render to update all positions with new zoom
+        this.renderer.render();
+    }
+
+    /**
+     * Highlights the corresponding row and column headers for a cell
+     * @param row - The row index
+     * @param col - The column index
+     */
+    private highlightHeadersForCell(row: number, col: number): void {
+        // Get the row and column objects
+        const rowObj = this.grid.getRow(row);
+        const colObj = this.grid.getColumn(col);
+        
+        // Highlight the row header without selecting the entire row
+        if (rowObj) {
+            rowObj.select();
+        }
+        
+        // Highlight the column header without selecting the entire column
+        if (colObj) {
+            colObj.select();
+        }
+    }
+
+    /**
+     * Highlights the corresponding row and column headers for a selection
+     */
+    private highlightHeadersForSelection(): void {
+        const selection = this.grid.getSelection();
+        if (!selection.isActive) return;
+        
+        const startRow = selection.startRow;
+        const endRow = selection.endRow;
+        const startCol = selection.startCol;
+        const endCol = selection.endCol;
+        
+        for (let row = startRow; row <= endRow; row++) {
+            const rowObj = this.grid.getRow(row);
+            if (rowObj) {
+                rowObj.select();
+            }
+        }
+        
+        for (let col = startCol; col <= endCol; col++) {
+            const colObj = this.grid.getColumn(col);
+            if (colObj) {
+                colObj.select();
+            }
+        }
+    }
 }

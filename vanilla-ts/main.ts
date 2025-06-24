@@ -33,7 +33,7 @@ class ExcelApp {
      */
     constructor() {
         this.canvas = document.getElementById('excelCanvas') as HTMLCanvasElement;
-        const dpr = window.devicePixelRatio || 1;
+        const dpr = window.devicePixelRatio || 1; 
         this.canvas.width = this.canvas.clientWidth * dpr;
         this.canvas.height = this.canvas.clientHeight * dpr;
         this.canvas.style.width = this.canvas.clientWidth + "px";
@@ -51,8 +51,6 @@ class ExcelApp {
      * Initializes the core components of the application
      */
     private initializeApp(): void {
-        // Ensure canvas takes full container size
-        this.resizeCanvas();
         
         this.grid = new Grid();
         this.commandManager = new CommandManager();
@@ -88,6 +86,8 @@ class ExcelApp {
 
     private handleDPRChange(): void {
         this.renderer!.updateDevicePixelRatio();
+        // After updating device pixel ratio, also update the zoom display
+        this.updateZoomLevelDisplay();
     }
 
     /**
@@ -192,21 +192,7 @@ class ExcelApp {
     /**
      * Resizes the canvas to match its container dimensions
      */
-    private resizeCanvas(): void {
-        const container = this.canvas.parentElement;
-        if (!container) return;
-        
-        // Let the canvas style handle dimensions rather than setting width/height directly
-        // This allows the CSS to control the visual size while maintaining proper pixel ratio
-        this.canvas.style.width = '100%';
-        this.canvas.style.height = '100%';
-        
-        // For the initial setup, set the width/height based on container size
-        // (Renderer.setupCanvas will handle this more thoroughly later)
-        const rect = container.getBoundingClientRect();
-        this.canvas.width = rect.width * window.devicePixelRatio;
-        this.canvas.height = rect.height * window.devicePixelRatio;
-    }
+  
     
     /**
      * Sets up a resize observer to handle window resize events

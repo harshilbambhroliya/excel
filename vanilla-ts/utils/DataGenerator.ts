@@ -58,11 +58,11 @@ export class DataGenerator {
     }
 
     /**
-     * Generates a random age between 20 and 70
+     * Generates a random age between 15 and 100
      * @returns {number} A random age value
      */
     private static getRandomAge(): number {
-        return Math.floor(Math.random() * 50) + 20; // Age between 20-70
+        return Math.floor(Math.random() * 85) + 15; // Age between 15-100
     }
 
     /**

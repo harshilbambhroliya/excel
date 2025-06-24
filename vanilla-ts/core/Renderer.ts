@@ -113,9 +113,19 @@ export class Renderer {
      * Updates the device pixel ratio
      */
     public updateDevicePixelRatio(): void {
+        // Store the current zoom factor
+        const currentZoom = this.zoomFactor;
+        
+        // Update device pixel ratio from the window
         this.devicePixelRatio = window.devicePixelRatio || 1;
+        
         // This will trigger setupCanvas and re-render with the new DPR
-        this.handleWindowResize(); 
+        this.handleWindowResize();
+        
+        // Ensure zoom factor is preserved after resize
+        if (currentZoom !== 1.0) {
+            this.setZoom(currentZoom);
+        }
     }
     
     /**
@@ -230,13 +240,19 @@ export class Renderer {
         const width = containerRect.width;
         const height = containerRect.height;
         
-        // Set actual size in memory (scaled for high DPI)
+        // Get the actual device pixel ratio
+        this.devicePixelRatio = window.devicePixelRatio || 1;
+        
+        // Set actual size in memory (scaled for both high DPI and zoom)
+        // This ensures sharp rendering at any zoom level
         this.canvas.width = width * this.devicePixelRatio;
         this.canvas.height = height * this.devicePixelRatio;
         
         // Reset the transform matrix before scaling to prevent cumulative scaling
-        this.ctx.setTransform(1, 0, 0, 1, 0, 0); 
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        
         // Scale the context to ensure correct drawing operations
+        // We scale by devicePixelRatio to handle high DPI screens
         this.ctx.scale(this.devicePixelRatio, this.devicePixelRatio);
         
         // Set display size (css pixels) to fill container completely
@@ -251,7 +267,7 @@ export class Renderer {
             height: height
         };
         
-        console.log(`Canvas setup: width=${width}, height=${height}`);
+        console.log(`Canvas setup: width=${width}, height=${height}, DPR=${this.devicePixelRatio}, Zoom=${this.zoomFactor}`);
         this.calculateAndSetRowHeaderWidth();
     }
 
@@ -276,12 +292,8 @@ export class Renderer {
         // Recalculate positions whenever rendering
         this.calculatePositions();
         this.calculateAndSetRowHeaderWidth();
-        
-        // Apply the zoom transform and render the content
-        this.renderContent();
-        
-        // Render headers on top of content (without zoom)
         this.renderHeaders();
+        this.renderContent();
     }
 
     /**
@@ -321,12 +333,27 @@ export class Renderer {
         this.ctx.clip();
         
         // Apply zoom transform to content area only
+        // First we translate to the corner of the content area
         this.ctx.translate(dimensions.headerWidth, dimensions.headerHeight);
-        this.ctx.scale(this.zoomFactor, this.zoomFactor);
+        
+        // Then apply zoom scaling - this needs to be sharp and clear
+        // Use a technique to ensure pixel-perfect scaling
+        const zoomX = Math.round(this.zoomFactor * 1000) / 1000; // Round to 3 decimal places for consistency
+        const zoomY = Math.round(this.zoomFactor * 1000) / 1000;
+        
+        this.ctx.scale(zoomX, zoomY);
+        
+        // Translate back
         this.ctx.translate(-dimensions.headerWidth, -dimensions.headerHeight);
         
+        // Enable image smoothing for text (for better readability when zoomed)
+        this.ctx.imageSmoothingEnabled = true;
+        this.ctx.imageSmoothingQuality = 'high';
+        
+        // Apply sharper line rendering for grid lines and borders
+        this.ctx.lineWidth = 1 / (this.devicePixelRatio * this.zoomFactor);
+        
         // Now render all content
-        this.renderRowColumnHighlight();
         this.renderCells(this.getVisibleRowRange().startRow, this.getVisibleRowRange().endRow, 
                       this.getVisibleColumnRange().startCol, this.getVisibleColumnRange().endCol);
         this.renderGridLines();
@@ -373,9 +400,13 @@ export class Renderer {
         this.ctx.textAlign = 'right'; // Align text to the right
         this.ctx.textBaseline = 'middle';
         
+        // Enable text anti-aliasing for better readability
+        this.ctx.imageSmoothingEnabled = true;
+        this.ctx.imageSmoothingQuality = 'high';
+        
         // Draw horizontal grid lines in row headers
         this.ctx.strokeStyle = '#d4d4d4';
-        this.ctx.lineWidth = 0.5;
+        this.ctx.lineWidth = 0.5 / this.devicePixelRatio; // Thin crisp lines
         
         for (let row = startRow; row < endRow; row++) {
             const rowHeight = this.grid.getRowHeight(row) * this.zoomFactor;
@@ -388,35 +419,42 @@ export class Renderer {
             const rowObj = this.grid.getRow(row);
             if (rowObj?.isSelected) {
                 // Excel uses a specific blue for selected headers
-                this.ctx.fillStyle = '#217346';
+                this.ctx.fillStyle = '#CAEAD8';
                 this.ctx.fillRect(0, yPos, dimensions.headerWidth, rowHeight);
-                this.ctx.fillStyle = '#ffffff'; // Excel uses green for selection text
-                this.ctx.font = 'Bold 14px Calibri';
+                this.ctx.fillStyle = '#0F703B'; // Excel uses green for selection text
+                this.ctx.font = 'Bold 16px Calibri';
+                // draw line at right of the selected row
+                this.ctx.strokeStyle = '#0F703B';
+                this.ctx.lineWidth = 5 / this.devicePixelRatio;
+                this.ctx.beginPath();
+                this.ctx.moveTo(dimensions.headerWidth, yPos);
+                this.ctx.lineTo(dimensions.headerWidth, yPos + rowHeight);
+                this.ctx.stroke();
             } else {
                 this.ctx.fillStyle = '#666666';
-                this.ctx.font = '14px Calibri';
+                this.ctx.font = '16px Calibri';
 
             }
             
+            // Align text position to pixel boundaries for sharpness
+            const textPixelRatio = this.devicePixelRatio;
+            const textX = Math.round((dimensions.headerWidth - 8) * textPixelRatio) / textPixelRatio;
+            const textY = Math.round((yPos + rowHeight / 2) * textPixelRatio) / textPixelRatio;
+            
             // Adjust text position for right alignment with padding
-            this.ctx.fillText(String(row + 1), dimensions.headerWidth - 8, yPos + rowHeight / 2); // 8px padding from right
+            this.ctx.fillText(String(row + 1), textX, textY); // 8px padding from right
             
             // Draw horizontal line at the bottom of each row header
             this.ctx.strokeStyle = '#E0E0E0';
             this.ctx.lineWidth = 1 / this.devicePixelRatio;
+            
+            const lineY = Math.round((yPos + rowHeight) ) + 0.5;
+            
             this.ctx.beginPath();
-            this.ctx.moveTo(0, Math.floor(yPos) + 0.5 + rowHeight);
-            this.ctx.lineTo(dimensions.headerWidth, Math.floor(yPos) + 0.5  + rowHeight);
+            this.ctx.moveTo(0, lineY);
+            this.ctx.lineTo(dimensions.headerWidth, lineY);
             this.ctx.stroke();
         }
-        
-        // Draw right border for row headers
-        this.ctx.strokeStyle = '#FFFFFF';
-        this.ctx.lineWidth = 1 / this.devicePixelRatio;
-        this.ctx.beginPath();
-        this.ctx.moveTo(Math.floor(dimensions.headerWidth) + 0.5, dimensions.headerHeight);
-        this.ctx.lineTo(Math.floor(dimensions.headerWidth) + 0.5, this.viewport.height);
-        this.ctx.stroke();
         
         this.ctx.restore();
     }
@@ -445,9 +483,13 @@ export class Renderer {
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
         
+        // Enable text anti-aliasing for better readability
+        this.ctx.imageSmoothingEnabled = true;
+        this.ctx.imageSmoothingQuality = 'high';
+        
         // Draw vertical grid lines in column headers
         this.ctx.strokeStyle = '#d4d4d4';
-        this.ctx.lineWidth = 0.5;
+        this.ctx.lineWidth = 1 / this.devicePixelRatio; // Thin crisp lines
         
         for (let col = startCol; col < endCol; col++) {
             const colWidth = this.grid.getColumnWidth(col) * this.zoomFactor;
@@ -460,33 +502,41 @@ export class Renderer {
             const colObj = this.grid.getColumn(col);
             if (colObj?.isSelected) {
                 // Excel uses a specific blue for selected headers
-                this.ctx.fillStyle = '#217346';
+                this.ctx.fillStyle = '#CAEAD8';
                 this.ctx.fillRect(xPos, 0, colWidth, dimensions.headerHeight);
-                this.ctx.fillStyle = '#ffffff'; // Excel uses green for selection text
-                this.ctx.font = 'Bold 14px Calibri';
+                this.ctx.fillStyle = '#0F703B'; // Excel uses green for selection text
+                this.ctx.font = 'Bold 16px Calibri';
+                // draw line at bottom of the selected column
+                this.ctx.strokeStyle = '#0F703B';
+                this.ctx.lineWidth = 4 / this.devicePixelRatio;
+                this.ctx.beginPath();
+                this.ctx.moveTo(xPos - 2, dimensions.headerHeight);
+                this.ctx.lineTo(xPos + colWidth + 2, dimensions.headerHeight);
+                this.ctx.stroke();
+                
             } else {
                 this.ctx.fillStyle = '#666666';
-                this.ctx.font = '14px Calibri';
+                this.ctx.font = '16px Calibri';
             }
             
-            this.ctx.fillText(colObj.header, xPos + colWidth / 2, dimensions.headerHeight / 2);
+            // Align text position to pixel boundaries for sharpness
+            const pixelRatio = this.devicePixelRatio;
+            const textX = Math.round((xPos + colWidth / 2) * pixelRatio) / pixelRatio;
+            const textY = Math.round((dimensions.headerHeight / 2) * pixelRatio) / pixelRatio;
+            
+            this.ctx.fillText(colObj.header, textX, textY);
             
             // Draw vertical line at the right edge of each column header
             this.ctx.strokeStyle = '#E0E0E0';
             this.ctx.lineWidth = 1 / this.devicePixelRatio;
+            
+            const lineX = Math.round((xPos + colWidth)) + 0.5;
+            
             this.ctx.beginPath();
-            this.ctx.moveTo(Math.floor(xPos) + 0.5 + colWidth, 0);
-            this.ctx.lineTo(Math.floor(xPos) + 0.5 + colWidth, dimensions.headerHeight);
+            this.ctx.moveTo(lineX, 0);
+            this.ctx.lineTo(lineX, dimensions.headerHeight);
             this.ctx.stroke();
         }
-        
-        // Draw bottom border for column headers
-        this.ctx.strokeStyle = '#FFFFFF';
-        this.ctx.lineWidth = 1 / this.devicePixelRatio;
-        this.ctx.beginPath();
-        this.ctx.moveTo(dimensions.headerWidth, Math.floor(dimensions.headerHeight) + 0.5);
-        this.ctx.lineTo(this.viewport.width, Math.floor(dimensions.headerHeight) + 0.5);
-        this.ctx.stroke();
         
         this.ctx.restore();
     }
@@ -531,7 +581,7 @@ export class Renderer {
      * Clears the canvas
      */
     private clearCanvas(): void {
-        this.ctx.clearRect(0, 0, this.viewport.width, this.viewport.height);
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
     /**
@@ -610,24 +660,27 @@ export class Renderer {
         
         // Bottom border
         this.ctx.beginPath();
-        this.ctx.moveTo(0, dimensions.headerHeight);
-        this.ctx.lineTo(dimensions.headerWidth, dimensions.headerHeight);
+        this.ctx.lineWidth = 3 / this.devicePixelRatio;
+        this.ctx.moveTo(0, dimensions.headerHeight + 0.5);
+        this.ctx.lineTo(dimensions.headerWidth, dimensions.headerHeight + 0.5);
         this.ctx.stroke();
         
         // Right border
         this.ctx.beginPath();
-        this.ctx.moveTo(dimensions.headerWidth, 0);
-        this.ctx.lineTo(dimensions.headerWidth, dimensions.headerHeight);
+        this.ctx.lineWidth = 3 / this.devicePixelRatio;
+        this.ctx.moveTo(dimensions.headerWidth + 0.5, 0);
+        this.ctx.lineTo(dimensions.headerWidth + 0.5, dimensions.headerHeight);
         this.ctx.stroke();
         
-        // Add a diagonal line as seen in Excel's corner cell
-        this.ctx.strokeStyle = '#d4d4d4';
-        this.ctx.lineWidth = 0.5;
+        // Add a triangle as seen in Excel's corner cell
+        this.ctx.fillStyle = '#d4d4d4';
+        this.ctx.lineWidth = 3 / this.devicePixelRatio;
         
         // Diagonal line from bottom-left to top-right
         this.ctx.beginPath();
         this.ctx.moveTo(dimensions.headerWidth - 10, dimensions.headerHeight);
         this.ctx.lineTo(dimensions.headerWidth, dimensions.headerHeight - 10);
+        this.ctx.fill();
         this.ctx.stroke();
     }
 
@@ -654,17 +707,22 @@ export class Renderer {
         this.ctx.clip();
         
         // Set text rendering defaults (Excel uses Calibri 11pt)
-        this.ctx.font = '14px Calibri';
+        const baseFontSize = 14;
+        this.ctx.font = `${baseFontSize}px Calibri`;
         this.ctx.textAlign = 'left'; // Excel aligns text to the left by default
         this.ctx.textBaseline = 'middle';
+        
+        // Enable text anti-aliasing for better readability
+        this.ctx.imageSmoothingEnabled = true;
+        this.ctx.imageSmoothingQuality = 'high';
         
         // Now render all cells
         for (let row = startRow; row < endRow; row++) {
             if(row == 0){
-                this.ctx.font = '14px Calibri'; // Excel doesn't bold the first row
+                this.ctx.font = `${baseFontSize}px Calibri`; // Excel doesn't bold the first row
             }
             else{
-                this.ctx.font = '14px Calibri';
+                this.ctx.font = `${baseFontSize}px Calibri`;
             }
             const rowHeight = this.grid.getRowHeight(row);
             const yPos = this.getRowPosition(row) - this.scrollY;
@@ -681,12 +739,12 @@ export class Renderer {
                 
                 const cell = this.grid.getCell(row, col);
                 
-                // Render cell background (Excel uses white for regular cells)
-                this.ctx.fillStyle = cell.style.backgroundColor || '#ffffff';
-                this.ctx.fillRect(xPos, yPos, colWidth, rowHeight);
-                
                 // Render cell text
                 if (cell.value !== null && cell.value !== undefined && cell.value !== '') {
+                    // Render cell background (Excel uses white for regular cells)
+                    this.ctx.fillStyle = cell.style.backgroundColor || '#ffffff';
+                    this.ctx.fillRect(xPos, yPos, colWidth, rowHeight);
+
                     // Check if cell is part of the selection
                     const isSelected = selection.isActive && 
                         selection.contains(row, col);
@@ -702,8 +760,14 @@ export class Renderer {
                     this.ctx.rect(xPos + 2, yPos, colWidth - 4, rowHeight);
                     this.ctx.clip();
                     
+                    // For high-quality text rendering at any zoom level
+                    // Align text position to pixel boundaries for sharpness
+                    const pixelRatio = this.devicePixelRatio * this.zoomFactor;
+                    const textX = Math.round((xPos + 6) * pixelRatio) / pixelRatio;
+                    const textY = Math.round((yPos + rowHeight / 2) * pixelRatio) / pixelRatio;
+                    
                     // Excel has padding on the left side of cells (about 6px)
-                    this.ctx.fillText(displayValue, xPos + 6, yPos + rowHeight / 2);
+                    this.ctx.fillText(displayValue, textX, textY);
                     this.ctx.restore();
                 }
             }
@@ -730,19 +794,21 @@ export class Renderer {
         );
         this.ctx.clip();
 
-        // Use exactly 1 device pixel for line width
+        // Use a crisp, light color for grid lines
         this.ctx.strokeStyle = '#e6e6e6';
-        this.ctx.lineWidth = 1 / dpr;
-        this.ctx.imageSmoothingEnabled = true;
-
+        
+        this.ctx.lineWidth = 1 / (dpr * this.zoomFactor);
+        
         // Vertical grid lines
         for (let col = 0; col < this.grid.getMaxCols(); col++) {
             const xPos = this.getColumnPosition(col) - this.scrollX;
             if (xPos < dimensions.headerWidth) continue;
             if (xPos > this.viewport.width) break;
+            
+            // Align to the nearest pixel for crisp lines
+            const px = Math.round(xPos) + 0.5;
+            
             this.ctx.beginPath();
-            const px = Math.floor(xPos) + 0.5;
-
             this.ctx.moveTo(px, dimensions.headerHeight);
             this.ctx.lineTo(px, this.viewport.height);
             this.ctx.stroke();
@@ -753,9 +819,11 @@ export class Renderer {
             const yPos = this.getRowPosition(row) - this.scrollY;
             if (yPos < dimensions.headerHeight) continue;
             if (yPos > this.viewport.height) break;
+            
+            // Align to the nearest pixel for crisp lines
+            const py = Math.round(yPos) + 0.5;
+            
             this.ctx.beginPath();
-    
-            const py = Math.floor(yPos) + 0.5;
             this.ctx.moveTo(dimensions.headerWidth, py);
             this.ctx.lineTo(this.viewport.width, py);
             this.ctx.stroke();
@@ -957,63 +1025,63 @@ export class Renderer {
     /**
      * Renders highlighting for the row and column of the active cell
      */
-    private renderRowColumnHighlight(): void {
-        const selection = this.grid.getSelection();
-        if (!selection.isActive) return;
+    // private renderRowColumnHighlight(): void {
+    //     const selection = this.grid.getSelection();
+    //     if (!selection.isActive) return;
         
-        const dimensions = this.grid.getDimensions();
+    //     const dimensions = this.grid.getDimensions();
         
-        // Save context
-        this.ctx.save();
+    //     // Save context
+    //     this.ctx.save();
         
-        // Create a clip region for the content area
-        this.ctx.beginPath();
-        this.ctx.rect(
-            dimensions.headerWidth,
-            dimensions.headerHeight,
-            this.viewport.width - dimensions.headerWidth,
-            this.viewport.height - dimensions.headerHeight
-        );
-        this.ctx.clip();
+    //     // Create a clip region for the content area
+    //     this.ctx.beginPath();
+    //     this.ctx.rect(
+    //         dimensions.headerWidth,
+    //         dimensions.headerHeight,
+    //         this.viewport.width - dimensions.headerWidth,
+    //         this.viewport.height - dimensions.headerHeight
+    //     );
+    //     this.ctx.clip();
         
-        // Get the active cell's position
-        const activeRow = selection.startRow;
-        const activeCol = selection.startCol;
+    //     // Get the active cell's position
+    //     const activeRow = selection.startRow;
+    //     const activeCol = selection.startCol;
         
-        // Highlight active row
-        const rowYPos = this.getRowPosition(activeRow) - this.scrollY;
-        const rowHeight = this.grid.getRowHeight(activeRow);
+    //     // Highlight active row
+    //     const rowYPos = this.getRowPosition(activeRow) - this.scrollY;
+    //     const rowHeight = this.grid.getRowHeight(activeRow);
         
-        // Check if the row is visible
-        if (rowYPos + rowHeight >= dimensions.headerHeight && rowYPos <= this.viewport.height) {
-            this.ctx.fillStyle = 'rgba(217, 226, 243, 0.7)'; // Excel's row highlight color
-            this.ctx.fillRect(
-                dimensions.headerWidth,
-                rowYPos,
-                this.viewport.width - dimensions.headerWidth,
-                rowHeight
-            );
-        }
+    //     // Check if the row is visible
+    //     if (rowYPos + rowHeight >= dimensions.headerHeight && rowYPos <= this.viewport.height) {
+    //         this.ctx.fillStyle = 'rgba(217, 226, 243, 0.7)'; // Excel's row highlight color
+    //         this.ctx.fillRect(
+    //             dimensions.headerWidth,
+    //             rowYPos,
+    //             this.viewport.width - dimensions.headerWidth,
+    //             rowHeight
+    //         );
+    //     }
         
-        // Highlight active column
-        const colXPos = this.getColumnPosition(activeCol) - this.scrollX;
-        const colWidth = this.grid.getColumnWidth(activeCol);
+    //     // Highlight active column
+    //     const colXPos = this.getColumnPosition(activeCol) - this.scrollX;
+    //     const colWidth = this.grid.getColumnWidth(activeCol);
         
-        // Check if the column is visible
-        if (colXPos + colWidth >= dimensions.headerWidth && colXPos <= this.viewport.width) {
-            this.ctx.fillStyle = 'rgba(217, 226, 243, 0.7)'; // Excel's column highlight color
-            this.ctx.fillRect(
-                colXPos,
-                dimensions.headerHeight,
-                colWidth,
-                this.viewport.height - dimensions.headerHeight
-            );
-        }
+    //     // Check if the column is visible
+    //     if (colXPos + colWidth >= dimensions.headerWidth && colXPos <= this.viewport.width) {
+    //         this.ctx.fillStyle = 'rgba(217, 226, 243, 0.7)'; // Excel's column highlight color
+    //         this.ctx.fillRect(
+    //             colXPos,
+    //             dimensions.headerHeight,
+    //             colWidth,
+    //             this.viewport.height - dimensions.headerHeight
+    //         );
+    //     }
         
-        // Restore context
-        this.ctx.restore();
+    //     // Restore context
+    //     this.ctx.restore();
         
-    }
+    // }
     
     /**
      * Sets the zoom factor
@@ -1040,21 +1108,19 @@ export class Renderer {
         // Ensure scroll positions don't go negative
         this.scrollX = Math.max(0, this.scrollX);
         this.scrollY = Math.max(0, this.scrollY);
-
-        this.devicePixelRatio = this.zoomFactor; 
-
         
         // Recalculate positions with new zoom factor
         this.calculatePositions();
-        
+        this.calculateAndSetRowHeaderWidth();
         // Update scrollbars and render
         this.updateScrollbars();
         this.render();
-
         
         // Notify event handler about zoom change
         if (this.eventHandler) {
             this.eventHandler.handleScroll();
+            // Update resize handles to account for zoom
+            this.eventHandler.updateResizeHandlesOnZoom();
         }
     }
     
@@ -1100,7 +1166,7 @@ export class Renderer {
             } else if (delta < 0) {
                 this.zoomOut();
             }
-            this.render();
+            // No need to call render here as it's already called in zoomIn/zoomOut via setZoom
             return true;
         }
         
