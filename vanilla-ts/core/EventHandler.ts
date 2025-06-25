@@ -287,6 +287,8 @@ export class EventHandler {
         // Cell selection
         const cellPos = this.renderer.getCellAtPosition(event.offsetX, event.offsetY);
         if (cellPos) {
+
+            this.renderer.dottedLineAcrossSelection = false;
             this.finishCellEdit();
             
             // Clear all selections (cell and header)
@@ -502,70 +504,196 @@ export class EventHandler {
                     this.renderer.render();
                     this.updateSelectionStats();}
                     break;
+                case 'c':
+                    {   
+                        const selection = this.grid.getSelection();
+                        // dotted line should be drawn
+                        this.renderer.renderDottedLineAcrossSelection(selection);
+                        if(selection.isActive){
+                            const range = selection.getRange();
+                            let prevRow = -1;
+                            let values: string[] = [];
+                            let text = "";
+                            range.forEach(pos => {
+                                const cell = this.grid.getCell(pos.row, pos.col);
+                                const value = cell.getDisplayValue();
+                                if(pos.row !== prevRow){
+                                    text += values.join('\t') + '\n';
+                                    values = [];
+                                    prevRow = pos.row;
+                                }
+                                values.push(value);
+                            })
+                            text += values.join('\t') + '\n';
+                            navigator.clipboard.writeText(text);
+                        }
+                        this.renderer.render();
+                        this.updateSelectionStats();
+                    }
+                    break;
+                case 'v':
+                    {   
+                        event.preventDefault();
+                        this.grid.clearAllSelections();
+                        selection.start(newRow, newCol);
+                        this.renderer.dottedLineAcrossSelection = false;
+                        // render the copied text
+                        
+                        // Paste clipboard content
+                        navigator.clipboard.readText().then(text => {
+                            const rows = text.trim().split('\n');
+                            const compositeCommand = new CompositeCommand();
+                            
+                            rows.forEach((row, rowIndex) => {
+                                const cells = row.split('\t');
+                                cells.forEach((cellValue, colIndex) => {
+                                    const targetRow = newRow + rowIndex;
+                                    const targetCol = newCol + colIndex;
+                                    
+                                    // Check if target cell is within grid bounds
+                                    if (targetRow < this.grid.getMaxRows() && targetCol < this.grid.getMaxCols()) {
+                                        const command = new EditCellCommand(
+                                            this.grid,
+                                            targetRow,
+                                            targetCol,
+                                            this.parseValue(cellValue)
+                                        );
+                                        compositeCommand.addCommand(command);
+                                    }
+                                });
+                            });
+                            
+                            if (compositeCommand.count() > 0) {
+                                this.commandManager.executeCommand(compositeCommand);
+                                
+                                // Select the pasted range
+                                const lastRow = Math.min(newRow + rows.length - 1, this.grid.getMaxRows() - 1);
+                                const lastCol = Math.min(
+                                    newCol + Math.max(...rows.map(r => r.split('\t').length)) - 1, 
+                                    this.grid.getMaxCols() - 1
+                                );
+                                
+                                selection.start(newRow, newCol);
+                                selection.extend(lastRow, lastCol);
+                                
+                                // Highlight headers for the selection
+                                this.grid.clearHeaderSelections();
+                                this.highlightHeadersForSelection();
+                            }
+                            
+                            this.renderer.render();
+                            this.updateSelectionStats();
+                        }).catch(err => {
+                            console.error("Failed to read clipboard contents: ", err);
+                        });
+                     
+                        this.renderer.render();
+                        this.updateSelectionStats();
+                        break;
+                    }
                 case 'ArrowRight':
+                    event.preventDefault();
                     newCol = this.grid.getMaxCols() - 1;
+                    this.grid.clearAllSelections();
+                    selection.start(newRow, newCol);
+                    this.renderer.render();
+                    this.updateSelectionStats();
                     break;
                 case 'ArrowLeft':
+                    event.preventDefault();
+                    this.grid.clearAllSelections();
+                    selection.start(newRow, newCol);
                     newCol = 0;
+                    this.renderer.render();
+                    this.updateSelectionStats();
                     break;
                 case 'ArrowDown':
+                    event.preventDefault();
+                    this.grid.clearAllSelections();
+                    selection.start(newRow, newCol);
                     newRow = this.grid.getMaxRows() - 1;
+                    this.renderer.render();
+                    this.updateSelectionStats();
                     break;
                 case 'ArrowUp':
+                    event.preventDefault();
+                    this.grid.clearAllSelections();
+                    selection.start(newRow, newCol);
                     newRow = 0;
+                    this.renderer.render();
+                    this.updateSelectionStats();
                     break;
                 default:
+                    return;
             }
         } 
         else {
             // Handle regular key presses (without shift)
             switch (event.key) {
                 case 'ArrowUp':
+                    event.preventDefault();
                     newRow = Math.max(0, newRow - 1);
+                    this.grid.clearAllSelections();
+                    selection.start(newRow, newCol);
+                    this.renderer.render();
+                    this.updateSelectionStats();
                     break;
                 case 'ArrowDown':
+                    event.preventDefault();
                     newRow = Math.min(this.grid.getMaxRows() - 1, newRow + 1);
+                    this.grid.clearAllSelections();
+                    selection.start(newRow, newCol);
+                    this.renderer.render();
+                    this.updateSelectionStats();
                     break;
                 case 'ArrowLeft':
+                    event.preventDefault();
                     newCol = Math.max(0, newCol - 1);
+                    this.grid.clearAllSelections();
+                    selection.start(newRow, newCol);
+                    this.renderer.render();
+                    this.updateSelectionStats();
                     break;
                 case 'ArrowRight':
+                    event.preventDefault();
                     newCol = Math.min(this.grid.getMaxCols() - 1, newCol + 1);
+                    this.grid.clearAllSelections();
+                    selection.start(newRow, newCol);
+                    this.renderer.render();
+                    this.updateSelectionStats();
                     break;
                 case 'Enter':
                     const cellRect = this.getCellRect(newRow, newCol);
                     if (cellRect) {
                         this.startCellEdit(newRow, newCol, cellRect.x, cellRect.y);
                     }
+                    this.renderer.render();
+                    this.updateSelectionStats();
                     return;
                 case 'Delete':
                     this.deleteSelectedCells();
+                    this.renderer.render();
+                    this.updateSelectionStats();
                     return;
                 case 'Tab':
                     event.preventDefault(); // Prevent default tab behavior
                     newCol = Math.min(this.grid.getMaxCols() - 1, newCol + 1);
+                    this.grid.clearAllSelections();
+                    selection.start(newRow, newCol);
+                    this.renderer.render();
+                    this.updateSelectionStats();
                     break;
                 default:
                     return;
             }
         }
-        
-        event.preventDefault();
-        
-        // Clear all selections including headers
-        this.grid.clearAllSelections();
-        
-        // Start new selection
-        selection.start(newRow, newCol);
-        
+    
         // Highlight corresponding headers for the new cell
         this.highlightHeadersForCell(newRow, newCol);
         
         // Make sure the cell is visible
         this.ensureCellVisible(newRow, newCol);
         
-        this.renderer.render();
-        this.updateSelectionStats();
     }
 
     /**

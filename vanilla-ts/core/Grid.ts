@@ -116,7 +116,6 @@ export class Grid {
     public getSelection(): Selection {
         return this.selection;
     }
-
     /**
      * Clears all data in the grid
      */

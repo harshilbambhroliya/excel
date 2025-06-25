@@ -14,7 +14,7 @@ export class DataManager {
     /** 
      * The maximum number of rows
      */
-    private maxRows: number = 1000000;
+    private maxRows: number = 100000;
 
     /**
      * The maximum number of columns

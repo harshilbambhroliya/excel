@@ -65,6 +65,8 @@ export class Renderer {
      */
     private maxZoom: number = 3.0;
 
+    public dottedLineAcrossSelection: boolean = false;
+
     /**
      * Constructor for the Renderer class
      * @param {HTMLCanvasElement} canvas The canvas element to render the grid on
@@ -1033,6 +1035,10 @@ export class Renderer {
     private renderSelection(): void {
         const selection = this.grid.getSelection();
         if (!selection.isActive) return;
+        if(this.dottedLineAcrossSelection){
+            this.renderDottedLineAcrossSelection(selection);
+            return;
+        }
         
         const dimensions = this.grid.getDimensions();
         
@@ -1086,6 +1092,65 @@ export class Renderer {
         this.ctx.strokeRect(pixelAlignedX - 0.5, pixelAlignedY - 0.5, pixelAlignedWidth, pixelAlignedHeight);
         
         // Restore the context
+        this.ctx.restore();
+
+        
+    }
+
+    public renderDottedLineAcrossSelection(selection: { getRange: () => { row: number, col: number }[] }): void {
+       this.dottedLineAcrossSelection = true;
+        const dimensions = this.grid.getDimensions();
+
+        const range = selection.getRange();
+        let minCol = range[0].col;
+        let maxCol = range[0].col;
+        let minRow = range[0].row;
+        let maxRow = range[0].row;
+        
+        range.forEach((pos: { col: number, row: number })=>{
+            if(pos.col < minCol) minCol = pos.col;
+            if(pos.col > maxCol) maxCol = pos.col;
+            if(pos.row < minRow) minRow = pos.row;
+            if(pos.row > maxRow) maxRow = pos.row;
+        });
+        
+        // Calculate positions with zoom factor
+        const startX = dimensions.headerWidth + (this.getColumnPosition(minCol) - dimensions.headerWidth - this.scrollX) * this.zoomFactor;
+        const startY = dimensions.headerHeight + (this.getRowPosition(minRow) - dimensions.headerHeight - this.scrollY) * this.zoomFactor;
+        const endX = dimensions.headerWidth + (this.getColumnPosition(maxCol + 1) - dimensions.headerWidth - this.scrollX) * this.zoomFactor;
+        const endY = dimensions.headerHeight + (this.getRowPosition(maxRow + 1) - dimensions.headerHeight - this.scrollY) * this.zoomFactor;
+
+        // Ensure coordinates are valid
+        if (isNaN(startX) || isNaN(startY) || isNaN(endX) || isNaN(endY)) {
+            return;
+        }
+
+        // Ensure the width and height are valid
+        const width = endX - startX;
+        const height = endY - startY;
+        if (width <= 0 || height <= 0) {
+            return;
+        }
+        
+        // Save current context state
+        this.ctx.save();
+        
+        // Draw rectangle around selection with dotted line
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = '#217346'; // Excel green color
+        this.ctx.lineWidth = 2 / this.devicePixelRatio; // Thicker line
+        this.ctx.setLineDash([8, 4]); // Larger dashes for better visibility
+        
+        // Align to pixel boundaries for crisp lines
+        const pixelAlignedX = Math.round(startX) + 0.5;
+        const pixelAlignedY = Math.round(startY) + 0.5;
+        const pixelAlignedWidth = Math.round(width);
+        const pixelAlignedHeight = Math.round(height);
+        
+        this.ctx.rect(pixelAlignedX, pixelAlignedY, pixelAlignedWidth, pixelAlignedHeight);
+        this.ctx.stroke();
+        
+        // Restore context
         this.ctx.restore();
     }
 
