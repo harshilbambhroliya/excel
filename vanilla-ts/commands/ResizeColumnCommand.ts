@@ -58,7 +58,7 @@ export class ResizeColumnCommand extends Command {
      * Undoes the command
      */
     public undo(): void {
-        // When undoing, revert to default width instead of previous width
-        this.grid.setColumnWidth(this.colIndex, this.defaultWidth);
+        // When undoing, revert to the old width
+        this.grid.setColumnWidth(this.colIndex, this.oldWidth);
     }
 }

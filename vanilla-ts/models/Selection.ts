@@ -52,8 +52,6 @@ export class Selection implements ISelection {
     public extend(row: number, col: number): void {
         this.endRow = row;
         this.endCol = col;
-        console.log(this.endRow, this.endCol);
-        
     }
 
     /**

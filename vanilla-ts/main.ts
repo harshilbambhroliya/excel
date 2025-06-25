@@ -178,15 +178,34 @@ class ExcelApp {
      * Loads sample data into the grid for testing
      */
     private loadSampleData(): void {
-        console.log('Generating 50,000 sample records...');
-        const startTime = performance.now();
-        
-        const data = DataGenerator.generateRecords(100000);
-        this.grid!.loadData(data);
-        this.renderer!.render();
-        
-        const endTime = performance.now();
-        console.log(`Data loaded in ${(endTime - startTime).toFixed(2)}ms`);
+        try {
+            // Reasonable default for most systems
+            const recordCount = 100000;
+            
+            console.log(`Generating ${recordCount} sample records...`);
+            const startTime = performance.now();
+            
+            const data = DataGenerator.generateRecords(recordCount);
+            console.log(`Generated ${data.length} records successfully`);
+            
+            // Load data into the grid
+            this.grid!.loadData(data);
+            console.log(`Data loaded into grid: ${this.grid!.getCurrentRows()} rows, ${this.grid!.getCurrentCols()} columns`);
+            
+            // Force the renderer to recalculate positions
+            this.renderer!.recalculatePositions();
+            
+            // Update scrollbars to reflect the new data size
+            this.renderer!.refreshScrollbars();
+            
+            // Render the grid with the new data
+            this.renderer!.render();
+            
+            const endTime = performance.now();
+            console.log(`Data loaded in ${(endTime - startTime).toFixed(2)}ms`);
+        } catch (error) {
+            console.error('Error loading sample data:', error);
+        }
     }
 
     /**

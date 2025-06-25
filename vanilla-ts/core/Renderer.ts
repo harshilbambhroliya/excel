@@ -96,14 +96,14 @@ export class Renderer {
         this.columnPositions = [dimensions.headerWidth];
         let currentX = dimensions.headerWidth;
         
-        for (let col = 0; col < this.grid.getMaxCols(); col++) {            
+        for (let col = 0; col < this.grid.getCurrentCols(); col++) {            
             currentX += this.grid.getColumnWidth(col);
             this.columnPositions.push(currentX);
         }
        
         this.rowPositions = [dimensions.headerHeight];
         let currentY = dimensions.headerHeight;
-        for (let row = 0; row < this.grid.getMaxRows(); row++) {
+        for (let row = 0; row < this.grid.getCurrentRows(); row++) {
             currentY += this.grid.getRowHeight(row);
             this.rowPositions.push(currentY);
         }
@@ -220,11 +220,63 @@ export class Renderer {
     public handleScroll(scrollX: number, scrollY: number): void {
         this.scrollX = scrollX;
         this.scrollY = scrollY;
+        
+        // Check if we need to dynamically add more rows or columns
+        this.checkAndExpandGrid();
+        
         this.render();
         
         // Notify event handler about scroll
         if (this.eventHandler) {
             this.eventHandler.handleScroll();
+        }
+    }
+
+    /**
+     * Checks if the user is scrolling near the end of the grid and adds more rows/columns if needed
+     */
+    private checkAndExpandGrid(): void {
+        const { startRow, endRow } = this.getVisibleRowRange();
+        const { startCol, endCol } = this.getVisibleColumnRange();
+        
+        // Get total rows and columns
+        const currentRows = this.grid.getCurrentRows();
+        const currentCols = this.grid.getCurrentCols();
+        
+        const maxRows = this.grid.getMaxRows();
+        const maxCols = this.grid.getMaxCols();
+        
+        // Define a threshold - how close to the end before we add more
+        // For example, if the user is within 20% of the end
+        const rowThreshold = Math.floor(currentRows * 0.8);
+        const colThreshold = Math.floor(currentCols * 0.8);
+        
+        // Check if we're approaching the end of rows
+        if (endRow >= rowThreshold && currentRows < maxRows) {
+            // Add more rows - typically in chunks, e.g., 50 at a time
+            const rowsToAdd = Math.min(50, maxRows - currentRows);
+            
+            if (this.grid.expandRows(rowsToAdd)) {
+                // Recalculate positions since we've added rows
+                this.calculatePositions();
+                // Update scrollbars
+                this.updateScrollbars();
+                console.log(`Added ${rowsToAdd} more rows. Now at ${this.grid.getCurrentRows()} rows.`);
+            }
+        }
+        
+        // Check if we're approaching the end of columns
+        if (endCol >= colThreshold && currentCols < maxCols) {
+            // Add more columns - typically in chunks, e.g., 10 at a time
+            const colsToAdd = Math.min(10, maxCols - currentCols);
+            
+            if (this.grid.expandColumns(colsToAdd)) {
+                // Recalculate positions since we've added columns
+                this.calculatePositions();
+                // Update scrollbars
+                this.updateScrollbars();
+                console.log(`Added ${colsToAdd} more columns. Now at ${this.grid.getCurrentCols()} columns.`);
+            }
         }
     }
 
@@ -259,6 +311,13 @@ export class Renderer {
         this.canvas.style.width = '100%';
         this.canvas.style.height = '100%';
         
+        // Ensure the canvas position is fixed to take full viewport
+        this.canvas.style.position = 'absolute';
+        this.canvas.style.top = '0';
+        this.canvas.style.left = '0';
+        this.canvas.style.right = '0';
+        this.canvas.style.bottom = '0';
+        
         // Update viewport
         this.viewport = {
             x: 0,
@@ -289,11 +348,89 @@ export class Renderer {
      */
     public render(): void {
         this.clearCanvas();
+        
         // Recalculate positions whenever rendering
         this.calculatePositions();
+        
+        // Check if we need to expand the grid based on the current view
+        // This helps with zoom changes and other cases where more content becomes visible
+        this.checkForGridExpansionNeeds();
+        
         this.calculateAndSetRowHeaderWidth();
         this.renderHeaders();
         this.renderContent();
+    }
+    
+    /**
+     * Checks if we need to expand the grid based on the current view
+     * This combines the logic from checkAndExpandGrid and checkAndExpandGridOnZoom
+     */
+    private checkForGridExpansionNeeds(): void {
+        // Get the visible range at the current zoom level
+        const { startRow, endRow } = this.getVisibleRowRange();
+        const { startCol, endCol } = this.getVisibleColumnRange();
+        
+        // Get total rows and columns
+        const currentRows = this.grid.getCurrentRows();
+        const currentCols = this.grid.getCurrentCols();
+        
+        const maxRows = this.grid.getMaxRows();
+        const maxCols = this.grid.getMaxCols();
+        
+        // Calculate thresholds based on zoom factor
+        const zoomFactor = Math.max(0.1, this.zoomFactor); // Prevent division by zero
+        
+        // For very low zoom levels (0.5 or below), we need more aggressive expansion
+        let thresholdMultiplier;
+        if (zoomFactor <= 0.25) {
+            // At very low zoom, expand when we're just 20-30% through the content
+            thresholdMultiplier = 0.3; 
+        } else if (zoomFactor <= 0.5) {
+            // At moderately low zoom, expand when we're about 30-50% through the content
+            thresholdMultiplier = 0.5;
+        } else {
+            // At normal zoom, use the standard 80% threshold
+            thresholdMultiplier = 0.8;
+        }
+        
+        // Calculate actual thresholds
+        const rowThreshold = Math.floor(currentRows * thresholdMultiplier);
+        const colThreshold = Math.floor(currentCols * thresholdMultiplier);
+        
+        // The lower the zoom, the more rows/columns to add at once
+        // This helps prevent constant small expansions at low zoom levels
+        const rowMultiplier = Math.max(1, Math.ceil(1.5 / zoomFactor)); // More aggressive multiplier
+        const colMultiplier = Math.max(1, Math.ceil(1.5 / zoomFactor));
+        
+        let needsUpdate = false;
+        
+        // Check if we're approaching the end of rows
+        if (endRow >= rowThreshold && currentRows < maxRows) {
+            // Add more rows based on zoom level
+            const rowsToAdd = Math.min(100 * rowMultiplier, maxRows - currentRows);
+            
+            if (this.grid.expandRows(rowsToAdd)) {
+                console.log(`Added ${rowsToAdd} more rows. Now at ${this.grid.getCurrentRows()} rows. (Zoom: ${zoomFactor.toFixed(2)}, Threshold: ${rowThreshold})`);
+                needsUpdate = true;
+            }
+        }
+        
+        // Check if we're approaching the end of columns
+        if (endCol >= colThreshold && currentCols < maxCols) {
+            // Add more columns based on zoom level
+            const colsToAdd = Math.min(20 * colMultiplier, maxCols - currentCols);
+            
+            if (this.grid.expandColumns(colsToAdd)) {
+                console.log(`Added ${colsToAdd} more columns. Now at ${this.grid.getCurrentCols()} columns. (Zoom: ${zoomFactor.toFixed(2)}, Threshold: ${colThreshold})`);
+                needsUpdate = true;
+            }
+        }
+        
+        // If we expanded the grid, recalculate positions
+        if (needsUpdate) {
+            this.calculatePositions();
+            this.updateScrollbars();
+        }
     }
 
     /**
@@ -332,6 +469,10 @@ export class Renderer {
         );
         this.ctx.clip();
         
+        // Calculate the available space and scaled content size to ensure full viewport coverage
+        const contentWidth = this.viewport.width - dimensions.headerWidth;
+        const contentHeight = this.viewport.height - dimensions.headerHeight;
+        
         // Apply zoom transform to content area only
         // First we translate to the corner of the content area
         this.ctx.translate(dimensions.headerWidth, dimensions.headerHeight);
@@ -350,17 +491,21 @@ export class Renderer {
         this.ctx.imageSmoothingEnabled = true;
         this.ctx.imageSmoothingQuality = 'high';
         
-        // Apply sharper line rendering for grid lines and borders
-        this.ctx.lineWidth = 1 / (this.devicePixelRatio * this.zoomFactor);
+        // Store the current zoom factor for cells to use later
+        const currentZoomFactor = this.zoomFactor;
         
-        // Now render all content
+        // Restore context before rendering cells to ensure text isn't hidden
+        this.ctx.restore();
+        
+        // Render cells after context restore, but passing the zoom factor for proper scaling
         this.renderCells(this.getVisibleRowRange().startRow, this.getVisibleRowRange().endRow, 
                       this.getVisibleColumnRange().startCol, this.getVisibleColumnRange().endCol);
-        this.renderGridLines();
-        this.renderSelection();
         
-        // Restore the original context state
-        this.ctx.restore();
+        // Now render grid lines with a separate context that's not affected by zoom scaling
+        this.renderGridLines();
+
+        // Render selection
+        this.renderSelection();
     }
     
     /**
@@ -394,9 +539,10 @@ export class Renderer {
         this.ctx.fillStyle = '#f0f2f5';
         this.ctx.fillRect(0, dimensions.headerHeight, dimensions.headerWidth, this.viewport.height);
         
-        // Draw headers
+        // Draw headers with font size based on zoom factor
         this.ctx.fillStyle = '#666666'; // Excel uses dark gray text for headers
-        this.ctx.font = '14px Calibri'; // Excel uses Calibri font
+        const headerFontSize = Math.max(14 * this.zoomFactor, 8); // Min size of 8px
+        this.ctx.font = `${headerFontSize}px Calibri`; // Scale font with zoom
         this.ctx.textAlign = 'right'; // Align text to the right
         this.ctx.textBaseline = 'middle';
         
@@ -417,12 +563,16 @@ export class Renderer {
             if (yPos + rowHeight < dimensions.headerHeight) continue;
             
             const rowObj = this.grid.getRow(row);
-            if (rowObj?.isSelected) {
+            // Skip rendering if row object is undefined
+            if (!rowObj) continue;
+            
+            if (rowObj.isSelected) {
                 // Excel uses a specific blue for selected headers
                 this.ctx.fillStyle = '#CAEAD8';
                 this.ctx.fillRect(0, yPos, dimensions.headerWidth, rowHeight);
                 this.ctx.fillStyle = '#0F703B'; // Excel uses green for selection text
-                this.ctx.font = 'Bold 16px Calibri';
+                const selectedHeaderFontSize = Math.max(16 * this.zoomFactor, 9); // Min size of 9px
+                this.ctx.font = `Bold ${selectedHeaderFontSize}px Calibri`;
                 // draw line at right of the selected row
                 this.ctx.strokeStyle = '#0F703B';
                 this.ctx.lineWidth = 5 / this.devicePixelRatio;
@@ -432,8 +582,8 @@ export class Renderer {
                 this.ctx.stroke();
             } else {
                 this.ctx.fillStyle = '#666666';
-                this.ctx.font = '16px Calibri';
-
+                // Reapply the header font size for consistency
+                this.ctx.font = `${headerFontSize}px Calibri`;
             }
             
             // Align text position to pixel boundaries for sharpness
@@ -477,9 +627,10 @@ export class Renderer {
         this.ctx.fillStyle = '#f0f2f5';
         this.ctx.fillRect(dimensions.headerWidth, 0, this.viewport.width, dimensions.headerHeight);
         
-        // Draw headers
+        // Draw headers with font size based on zoom factor
         this.ctx.fillStyle = '#666666'; // Excel uses dark gray text for headers
-        this.ctx.font = '14px Calibri'; // Excel uses Calibri font
+        const colHeaderFontSize = Math.max(14 * this.zoomFactor, 8); // Min size of 8px
+        this.ctx.font = `${colHeaderFontSize}px Calibri`; // Scale font with zoom
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
         
@@ -500,12 +651,16 @@ export class Renderer {
             if (xPos + colWidth < dimensions.headerWidth) continue;
             
             const colObj = this.grid.getColumn(col);
-            if (colObj?.isSelected) {
+            // Skip rendering if column object is undefined
+            if (!colObj) continue;
+            
+            if (colObj.isSelected) {
                 // Excel uses a specific blue for selected headers
                 this.ctx.fillStyle = '#CAEAD8';
                 this.ctx.fillRect(xPos, 0, colWidth, dimensions.headerHeight);
                 this.ctx.fillStyle = '#0F703B'; // Excel uses green for selection text
-                this.ctx.font = 'Bold 16px Calibri';
+                const selectedColHeaderFontSize = Math.max(16 * this.zoomFactor, 9); // Min size of 9px
+                this.ctx.font = `Bold ${selectedColHeaderFontSize}px Calibri`;
                 // draw line at bottom of the selected column
                 this.ctx.strokeStyle = '#0F703B';
                 this.ctx.lineWidth = 4 / this.devicePixelRatio;
@@ -516,7 +671,8 @@ export class Renderer {
                 
             } else {
                 this.ctx.fillStyle = '#666666';
-                this.ctx.font = '16px Calibri';
+                // Reapply the column header font size for consistency
+                this.ctx.font = `${colHeaderFontSize}px Calibri`;
             }
             
             // Align text position to pixel boundaries for sharpness
@@ -524,7 +680,9 @@ export class Renderer {
             const textX = Math.round((xPos + colWidth / 2) * pixelRatio) / pixelRatio;
             const textY = Math.round((dimensions.headerHeight / 2) * pixelRatio) / pixelRatio;
             
-            this.ctx.fillText(colObj.header, textX, textY);
+            // Use a default header text if header is undefined
+            const headerText = colObj.header || this.generateColumnHeader(col);
+            this.ctx.fillText(headerText, textX, textY);
             
             // Draw vertical line at the right edge of each column header
             this.ctx.strokeStyle = '#E0E0E0';
@@ -541,6 +699,23 @@ export class Renderer {
         this.ctx.restore();
     }
     
+    /**
+     * Generates a column header label from a column index (0 = 'A', 1 = 'B', etc.)
+     * @param {number} index The column index
+     * @returns {string} The generated column header label
+     */
+    private generateColumnHeader(index: number): string {
+        let result = '';
+        let temp = index;
+        
+        do {
+            result = String.fromCharCode(65 + (temp % 26)) + result;
+            temp = Math.floor(temp / 26) - 1;
+        } while (temp >= 0);
+        
+        return result;
+    }
+
     /**
      * Gets the column position for header rendering, accounting for zoom factor
      * @param {number} col The column index
@@ -591,7 +766,7 @@ export class Renderer {
     private getVisibleRowRange(): { startRow: number, endRow: number } {
         const dimensions = this.grid.getDimensions();
         let startRow = 0;
-        let endRow = this.grid.getMaxRows();
+        let endRow = this.grid.getCurrentRows();
         
         // Adjust for zoom factor when determining visible range
         const effectiveViewportHeight = dimensions.headerHeight + 
@@ -621,7 +796,7 @@ export class Renderer {
     private getVisibleColumnRange(): { startCol: number, endCol: number } {
         const dimensions = this.grid.getDimensions();
         let startCol = 0;
-        let endCol = this.grid.getMaxCols();
+        let endCol = this.grid.getCurrentCols();
         
         // Adjust for zoom factor when determining visible range
         const effectiveViewportWidth = dimensions.headerWidth + 
@@ -706,8 +881,9 @@ export class Renderer {
         );
         this.ctx.clip();
         
-        // Set text rendering defaults (Excel uses Calibri 11pt)
+        // Set text rendering defaults
         const baseFontSize = 14;
+        // We'll adjust font size individually for each cell based on zoom factor
         this.ctx.font = `${baseFontSize}px Calibri`;
         this.ctx.textAlign = 'left'; // Excel aligns text to the left by default
         this.ctx.textBaseline = 'middle';
@@ -718,32 +894,37 @@ export class Renderer {
         
         // Now render all cells
         for (let row = startRow; row < endRow; row++) {
-            if(row == 0){
-                this.ctx.font = `${baseFontSize}px Calibri`; // Excel doesn't bold the first row
-            }
-            else{
-                this.ctx.font = `${baseFontSize}px Calibri`;
-            }
+            // Font size will be set dynamically for each cell based on zoom factor
             const rowHeight = this.grid.getRowHeight(row);
-            const yPos = this.getRowPosition(row) - this.scrollY;
+            
+            // Calculate position with zoom factor applied
+            const rawYPos = this.getRowPosition(row) - this.scrollY;
+            const yPos = dimensions.headerHeight + (rawYPos - dimensions.headerHeight) * this.zoomFactor;
             
             if (yPos > this.viewport.height) continue;
-            if (yPos + rowHeight < dimensions.headerHeight) continue;
+            if (yPos + rowHeight * this.zoomFactor < dimensions.headerHeight) continue;
             
             for (let col = startCol; col < endCol; col++) {
                 const colWidth = this.grid.getColumnWidth(col);
-                const xPos = this.getColumnPosition(col) - this.scrollX;
+                
+                // Calculate position with zoom factor applied
+                const rawXPos = this.getColumnPosition(col) - this.scrollX;
+                const xPos = dimensions.headerWidth + (rawXPos - dimensions.headerWidth) * this.zoomFactor;
                 
                 if (xPos > this.viewport.width) continue;
-                if (xPos + colWidth < dimensions.headerWidth) continue;
+                if (xPos + colWidth * this.zoomFactor < dimensions.headerWidth) continue;
                 
                 const cell = this.grid.getCell(row, col);
                 
                 // Render cell text
                 if (cell.value !== null && cell.value !== undefined && cell.value !== '') {
+                    // Calculate cell dimensions with zoom factor applied
+                    const scaledWidth = colWidth * this.zoomFactor;
+                    const scaledHeight = rowHeight * this.zoomFactor;
+                    
                     // Render cell background (Excel uses white for regular cells)
                     this.ctx.fillStyle = cell.style.backgroundColor || '#ffffff';
-                    this.ctx.fillRect(xPos, yPos, colWidth, rowHeight);
+                    this.ctx.fillRect(xPos, yPos, scaledWidth, scaledHeight);
 
                     // Check if cell is part of the selection
                     const isSelected = selection.isActive && 
@@ -754,19 +935,22 @@ export class Renderer {
                     
                     const displayValue = cell.getDisplayValue();
                     
-                    // Clip text to cell boundaries
+                    // Clip text to cell boundaries with scaled dimensions
                     this.ctx.save();
                     this.ctx.beginPath();
-                    this.ctx.rect(xPos + 2, yPos, colWidth - 4, rowHeight);
+                    this.ctx.rect(xPos + 2, yPos, scaledWidth - 4, scaledHeight);
                     this.ctx.clip();
                     
-                    // For high-quality text rendering at any zoom level
-                    // Align text position to pixel boundaries for sharpness
-                    const pixelRatio = this.devicePixelRatio * this.zoomFactor;
-                    const textX = Math.round((xPos + 6) * pixelRatio) / pixelRatio;
-                    const textY = Math.round((yPos + rowHeight / 2) * pixelRatio) / pixelRatio;
+                    // Adjust font size based on zoom factor for better visibility
+                    const scaledFontSize = Math.max(baseFontSize * this.zoomFactor, 8); // Min size of 8px
+                    this.ctx.font = `${scaledFontSize}px Calibri`;
                     
-                    // Excel has padding on the left side of cells (about 6px)
+                    // Apply proper padding based on zoom factor
+                    const paddingLeft = 6 * this.zoomFactor;
+                    const textX = xPos + paddingLeft;
+                    const textY = yPos + (scaledHeight / 2); // Vertically center in scaled cell
+                    
+                    // Render text with adjusted size and position
                     this.ctx.fillText(displayValue, textX, textY);
                     this.ctx.restore();
                 }
@@ -777,14 +961,16 @@ export class Renderer {
         this.ctx.restore();
     }
 
-
     /**
      * Renders the grid lines
      */
     private renderGridLines(): void {
         const dimensions = this.grid.getDimensions();
-        const dpr = this.devicePixelRatio || 1;
+        
+        // Save the current context state
         this.ctx.save();
+        
+        // Create clip region for grid lines
         this.ctx.beginPath();
         this.ctx.rect(
             dimensions.headerWidth, 
@@ -794,41 +980,50 @@ export class Renderer {
         );
         this.ctx.clip();
 
-        // Use a crisp, light color for grid lines
-        this.ctx.strokeStyle = '#e6e6e6';
+        // Use a clearly visible color for grid lines
+        this.ctx.strokeStyle = '#e0e0e0';
         
-        this.ctx.lineWidth = 1 / (dpr * this.zoomFactor);
+        // Fixed line width that ensures visibility but remains crisp
+        this.ctx.lineWidth = 1 / this.devicePixelRatio;
         
-        // Vertical grid lines
-        for (let col = 0; col < this.grid.getMaxCols(); col++) {
-            const xPos = this.getColumnPosition(col) - this.scrollX;
+        // Get visible column and row ranges
+        const visibleRows = this.getVisibleRowRange();
+        const visibleCols = this.getVisibleColumnRange();
+        
+        // Draw vertical grid lines (column boundaries)
+        for (let col = visibleCols.startCol; col <= visibleCols.endCol + 1; col++) {
+            // Get the actual screen position for this column
+            let xPos = dimensions.headerWidth + (this.getColumnPosition(col) - dimensions.headerWidth - this.scrollX) * this.zoomFactor;
+            
+            // Align to pixel boundary for crisp lines
+            xPos = Math.round(xPos) + 0.5;
+            
             if (xPos < dimensions.headerWidth) continue;
             if (xPos > this.viewport.width) break;
             
-            // Align to the nearest pixel for crisp lines
-            const px = Math.round(xPos) + 0.5;
-            
             this.ctx.beginPath();
-            this.ctx.moveTo(px, dimensions.headerHeight);
-            this.ctx.lineTo(px, this.viewport.height);
+            this.ctx.moveTo(xPos, dimensions.headerHeight);
+            this.ctx.lineTo(xPos, this.viewport.height);
             this.ctx.stroke();
         }
-
-        // Horizontal grid lines
-        for (let row = 0; row < this.grid.getMaxRows(); row++) {
-            const yPos = this.getRowPosition(row) - this.scrollY;
+        
+        // Draw horizontal grid lines (row boundaries)
+        for (let row = visibleRows.startRow; row <= visibleRows.endRow + 1; row++) {
+            // Get the actual screen position for this row
+            let yPos = dimensions.headerHeight + (this.getRowPosition(row) - dimensions.headerHeight - this.scrollY) * this.zoomFactor;
+            
+            // Align to pixel boundary for crisp lines
+            yPos = Math.round(yPos) + 0.5;
+            
             if (yPos < dimensions.headerHeight) continue;
             if (yPos > this.viewport.height) break;
             
-            // Align to the nearest pixel for crisp lines
-            const py = Math.round(yPos) + 0.5;
-            
             this.ctx.beginPath();
-            this.ctx.moveTo(dimensions.headerWidth, py);
-            this.ctx.lineTo(this.viewport.width, py);
+            this.ctx.moveTo(dimensions.headerWidth, yPos);
+            this.ctx.lineTo(this.viewport.width, yPos);
             this.ctx.stroke();
         }
-
+        
         this.ctx.restore();
     }
 
@@ -857,12 +1052,13 @@ export class Renderer {
         const minCol = Math.min(selection.startCol, selection.endCol);
         const maxCol = Math.max(selection.startCol, selection.endCol);
         
-        // Calculate positions
-        const startX = this.getColumnPosition(minCol) - this.scrollX;
-        const startY = this.getRowPosition(minRow) - this.scrollY;
+        // Get the position of the selection cells accounting for zoom
+        const startX = dimensions.headerWidth + (this.getColumnPosition(minCol) - dimensions.headerWidth - this.scrollX) * this.zoomFactor;
+        const startY = dimensions.headerHeight + (this.getRowPosition(minRow) - dimensions.headerHeight - this.scrollY) * this.zoomFactor;
         
-        let endX = this.getColumnPosition(maxCol + 1) - this.scrollX;
-        let endY = this.getRowPosition(maxRow + 1) - this.scrollY;
+        // Calculate the end position by getting the next column/row position
+        let endX = dimensions.headerWidth + (this.getColumnPosition(maxCol + 1) - dimensions.headerWidth - this.scrollX) * this.zoomFactor;
+        let endY = dimensions.headerHeight + (this.getRowPosition(maxRow + 1) - dimensions.headerHeight - this.scrollY) * this.zoomFactor;
         
         // Make sure we don't try to render outside the viewport
         if (startX > this.viewport.width || startY > this.viewport.height) {
@@ -874,15 +1070,20 @@ export class Renderer {
         const width = endX - startX;
         const height = endY - startY;
         
+        // Ensure the line is drawn on pixel boundaries for sharpness
+        const pixelAlignedX = Math.round(startX) + 0.5;
+        const pixelAlignedY = Math.round(startY) + 0.5;
+        const pixelAlignedWidth = Math.round(width);
+        const pixelAlignedHeight = Math.round(height);
+        
         // Draw selection highlight (Excel uses a very light blue)
-        // Using a more transparent blue so text remains readable
         this.ctx.fillStyle = 'rgba(232, 242, 236, 0.2)';
-        this.ctx.fillRect(startX, startY, width, height);
+        this.ctx.fillRect(pixelAlignedX - 0.5, pixelAlignedY - 0.5, pixelAlignedWidth, pixelAlignedHeight);
         
         // Draw selection border (Excel uses a specific green for the border)
         this.ctx.strokeStyle = '#217346';
-        this.ctx.lineWidth = 2;
-        this.ctx.strokeRect(startX, startY, width, height);
+        this.ctx.lineWidth = 2 / this.devicePixelRatio;
+        this.ctx.strokeRect(pixelAlignedX - 0.5, pixelAlignedY - 0.5, pixelAlignedWidth, pixelAlignedHeight);
         
         // Restore the context
         this.ctx.restore();
@@ -964,10 +1165,13 @@ export class Renderer {
         this.scrollY = currentScrollY;
         this.zoomFactor = currentZoom;
         
+        // Update header dimensions
+        this.calculateAndSetRowHeaderWidth();
+        this.calculateAndSetHeaderHeight();
+        
         // Update scrollbars and render
         this.updateScrollbars();
         this.render();
-        this.calculateAndSetRowHeaderWidth();
     }
 
     /**
@@ -988,7 +1192,7 @@ export class Renderer {
         const dimensions = this.grid.getDimensions();
         let totalWidth = dimensions.headerWidth;
         
-        for (let col = 0; col < this.grid.getMaxCols(); col++) {
+        for (let col = 0; col < this.grid.getCurrentCols(); col++) {
             totalWidth += this.grid.getColumnWidth(col) * this.zoomFactor;
         }
         
@@ -1014,7 +1218,7 @@ export class Renderer {
         const dimensions = this.grid.getDimensions();
         let totalHeight = dimensions.headerHeight;
         
-        for (let row = 0; row < this.grid.getMaxRows(); row++) {
+        for (let row = 0; row < this.grid.getCurrentRows(); row++) {
             totalHeight += this.grid.getRowHeight(row) * this.zoomFactor;
         }
         
@@ -1022,67 +1226,6 @@ export class Renderer {
         return Math.max(totalHeight, this.viewport.height);
     }
 
-    /**
-     * Renders highlighting for the row and column of the active cell
-     */
-    // private renderRowColumnHighlight(): void {
-    //     const selection = this.grid.getSelection();
-    //     if (!selection.isActive) return;
-        
-    //     const dimensions = this.grid.getDimensions();
-        
-    //     // Save context
-    //     this.ctx.save();
-        
-    //     // Create a clip region for the content area
-    //     this.ctx.beginPath();
-    //     this.ctx.rect(
-    //         dimensions.headerWidth,
-    //         dimensions.headerHeight,
-    //         this.viewport.width - dimensions.headerWidth,
-    //         this.viewport.height - dimensions.headerHeight
-    //     );
-    //     this.ctx.clip();
-        
-    //     // Get the active cell's position
-    //     const activeRow = selection.startRow;
-    //     const activeCol = selection.startCol;
-        
-    //     // Highlight active row
-    //     const rowYPos = this.getRowPosition(activeRow) - this.scrollY;
-    //     const rowHeight = this.grid.getRowHeight(activeRow);
-        
-    //     // Check if the row is visible
-    //     if (rowYPos + rowHeight >= dimensions.headerHeight && rowYPos <= this.viewport.height) {
-    //         this.ctx.fillStyle = 'rgba(217, 226, 243, 0.7)'; // Excel's row highlight color
-    //         this.ctx.fillRect(
-    //             dimensions.headerWidth,
-    //             rowYPos,
-    //             this.viewport.width - dimensions.headerWidth,
-    //             rowHeight
-    //         );
-    //     }
-        
-    //     // Highlight active column
-    //     const colXPos = this.getColumnPosition(activeCol) - this.scrollX;
-    //     const colWidth = this.grid.getColumnWidth(activeCol);
-        
-    //     // Check if the column is visible
-    //     if (colXPos + colWidth >= dimensions.headerWidth && colXPos <= this.viewport.width) {
-    //         this.ctx.fillStyle = 'rgba(217, 226, 243, 0.7)'; // Excel's column highlight color
-    //         this.ctx.fillRect(
-    //             colXPos,
-    //             dimensions.headerHeight,
-    //             colWidth,
-    //             this.viewport.height - dimensions.headerHeight
-    //         );
-    //     }
-        
-    //     // Restore context
-    //     this.ctx.restore();
-        
-    // }
-    
     /**
      * Sets the zoom factor
      * @param {number} zoom The zoom factor to set
@@ -1093,6 +1236,9 @@ export class Renderer {
         
         // If zoom hasn't changed, do nothing
         if (newZoom === this.zoomFactor) return;
+        
+        // Store the old zoom factor to determine if we're zooming in or out
+        const oldZoom = this.zoomFactor;
         
         // Calculate current center position in grid coordinates
         const centerX = this.scrollX + this.viewport.width / 2 / this.zoomFactor;
@@ -1109,9 +1255,17 @@ export class Renderer {
         this.scrollX = Math.max(0, this.scrollX);
         this.scrollY = Math.max(0, this.scrollY);
         
-        // Recalculate positions with new zoom factor
-        this.calculatePositions();
+        // Update header dimensions for zoom level
         this.calculateAndSetRowHeaderWidth();
+        this.calculateAndSetHeaderHeight();
+        
+        // If zooming out, we need to check if we should expand the grid
+        // since more content becomes visible
+        if (newZoom < oldZoom) {
+            this.calculatePositions(); // Recalculate positions for the new zoom level
+            this.checkAndExpandGridOnZoom(); // Check if we need to add more rows/columns
+        }
+        
         // Update scrollbars and render
         this.updateScrollbars();
         this.render();
@@ -1124,6 +1278,67 @@ export class Renderer {
         }
     }
     
+    /**
+     * Checks if the grid needs to be expanded after zooming out
+     * This is similar to checkAndExpandGrid but considers the zoom factor
+     */
+    private checkAndExpandGridOnZoom(): void {
+        // Get the visible range at the current zoom level
+        const { startRow, endRow } = this.getVisibleRowRange();
+        const { startCol, endCol } = this.getVisibleColumnRange();
+        
+        // Get total rows and columns
+        const currentRows = this.grid.getCurrentRows();
+        const currentCols = this.grid.getCurrentCols();
+        
+        const maxRows = this.grid.getMaxRows();
+        const maxCols = this.grid.getMaxCols();
+        
+        // Calculate thresholds based on zoom factor
+        // When zoomed out, we want to expand earlier to ensure smooth scrolling
+        const zoomFactor = Math.max(0.1, this.zoomFactor); // Prevent division by zero
+        
+        // Adjust thresholds based on zoom - the more zoomed out, the earlier we expand
+        // When zoomed out (smaller zoomFactor), we want a lower threshold percentage
+        // So if zoom is 0.5, we might want to expand at 40% (0.8 * 0.5) instead of 80%
+        const rowThreshold = Math.floor(currentRows * 0.8 * zoomFactor);
+        const colThreshold = Math.floor(currentCols * 0.8 * zoomFactor);
+        
+        // The lower the zoom, the more rows/columns to add at once
+        const rowMultiplier = Math.max(1, Math.ceil(1.5 / zoomFactor)); // More aggressive multiplier
+        const colMultiplier = Math.max(1, Math.ceil(1.5 / zoomFactor));
+        
+        let needsUpdate = false;
+        
+        // Check if we're approaching the end of rows
+        if (endRow >= rowThreshold && currentRows < maxRows) {
+            // Add more rows based on zoom level
+            const rowsToAdd = Math.min(100 * rowMultiplier, maxRows - currentRows);
+            
+            if (this.grid.expandRows(rowsToAdd)) {
+                console.log(`Added ${rowsToAdd} more rows. Now at ${this.grid.getCurrentRows()} rows. (Zoom: ${zoomFactor.toFixed(2)}, Threshold: ${rowThreshold})`);
+                needsUpdate = true;
+            }
+        }
+        
+        // Check if we're approaching the end of columns
+        if (endCol >= colThreshold && currentCols < maxCols) {
+            // Add more columns based on zoom level
+            const colsToAdd = Math.min(20 * colMultiplier, maxCols - currentCols);
+            
+            if (this.grid.expandColumns(colsToAdd)) {
+                console.log(`Added ${colsToAdd} more columns. Now at ${this.grid.getCurrentCols()} columns. (Zoom: ${zoomFactor.toFixed(2)}, Threshold: ${colThreshold})`);
+                needsUpdate = true;
+            }
+        }
+        
+        // If we expanded the grid, recalculate positions
+        if (needsUpdate) {
+            this.calculatePositions();
+            this.updateScrollbars();
+        }
+    }
+
     /**
      * Increases the zoom factor
      */
@@ -1174,15 +1389,17 @@ export class Renderer {
     }
 
     /**
-     * Calculates the optimal width for row headers based on the longest row number.
+     * Calculates and sets the optimal width for row headers based on the longest row number.
      * This ensures row numbers are not truncated.
+     * Also accounts for the current zoom level.
      */
     private calculateAndSetRowHeaderWidth(): void {
         const visibleRows = this.getVisibleRowRange();
         let maxWidth = 0;
 
-        // Temporarily set font for measurement - match what's used in renderRowHeaders
-        this.ctx.font = '14px Calibri'; 
+        // Set font for measurement with the zoom factor applied
+        const headerFontSize = Math.max(14 * this.zoomFactor, 8); // Min size of 8px
+        this.ctx.font = `${headerFontSize}px Calibri`;
         
         // Measure the width of all visible row numbers to find the maximum
         for (let row = visibleRows.startRow; row < visibleRows.endRow; row++) {
@@ -1193,14 +1410,52 @@ export class Renderer {
             }
         }
         
-        
-        const PADDING = 35; // Adjust padding to give some space after the number
-        const MIN_WIDTH = 30; // Minimum width for header
+        // Scale padding based on zoom factor
+        const PADDING = 35 * this.zoomFactor; // Scale padding with zoom
+        const MIN_WIDTH = 30 * this.zoomFactor; // Scale minimum width with zoom
         const newHeaderWidth = Math.max(MIN_WIDTH, maxWidth + PADDING);
         
-      
         if (Math.abs(newHeaderWidth - this.grid.getDimensions().headerWidth) > 1) {
             this.grid.setHeaderWidth(newHeaderWidth);
         }
+        
+        // Also adjust the header height based on zoom
+        this.calculateAndSetHeaderHeight();
+    }
+    
+    /**
+     * Calculates and sets the header height based on the current zoom factor
+     * to ensure column headers are properly sized.
+     */
+    private calculateAndSetHeaderHeight(): void {
+        const dimensions = this.grid.getDimensions();
+        
+        // Base header height scaled with zoom factor
+        const BASE_HEIGHT = 30;
+        const MIN_HEIGHT = 20;
+        
+        // Calculate new height based on zoom
+        const newHeaderHeight = Math.max(BASE_HEIGHT * this.zoomFactor, MIN_HEIGHT);
+        
+        // Update only if there's a significant change
+        if (Math.abs(newHeaderHeight - dimensions.headerHeight) > 1) {
+            this.grid.setHeaderHeight(newHeaderHeight);
+        }
+    }
+
+    /**
+     * Public method to recalculate positions after data is loaded
+     * This should be called after loading new data
+     */
+    public recalculatePositions(): void {
+        this.calculatePositions();
+    }
+    
+    /**
+     * Public method to update scrollbars after data is loaded
+     * This should be called after loading new data
+     */
+    public refreshScrollbars(): void {
+        this.updateScrollbars();
     }
 }

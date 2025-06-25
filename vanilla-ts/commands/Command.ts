@@ -89,3 +89,53 @@ export class CommandManager {
         return this.redoStack.length > 0;
     }
 }
+
+/**
+ * A command that groups multiple commands together and executes them as a single unit
+ * This is useful for operations that modify multiple cells at once
+ */
+export class CompositeCommand implements ICommand {
+    /** @type {Command[]} List of commands to execute as a group */
+    private commands: Command[] = [];
+
+    /**
+     * Creates a new composite command
+     * @param {Command[]} commands Optional initial list of commands
+     */
+    constructor(commands: Command[] = []) {
+        this.commands = commands;
+    }
+
+    /**
+     * Adds a command to the composite
+     * @param {Command} command The command to add
+     */
+    public addCommand(command: Command): void {
+        this.commands.push(command);
+    }
+
+    /**
+     * Executes all commands in the composite
+     */
+    public execute(): void {
+        this.commands.forEach(command => command.execute());
+    }
+
+    /**
+     * Undoes all commands in the composite in reverse order
+     */
+    public undo(): void {
+        // Undo commands in reverse order
+        for (let i = this.commands.length - 1; i >= 0; i--) {
+            this.commands[i].undo();
+        }
+    }
+
+    /**
+     * Gets the number of commands in this composite
+     * @returns {number} The number of commands
+     */
+    public count(): number {
+        return this.commands.length;
+    }
+}

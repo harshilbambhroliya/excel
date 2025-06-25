@@ -58,7 +58,7 @@ export class ResizeRowCommand extends Command {
      * Undoes the command
      */
     public undo(): void {
-        // When undoing, revert to default height instead of previous height
-        this.grid.setRowHeight(this.rowIndex, this.defaultHeight);
+        // When undoing, revert to the old height
+        this.grid.setRowHeight(this.rowIndex, this.oldHeight);
     }
 }

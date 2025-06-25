@@ -45,12 +45,12 @@ export class Grid {
      */
     private initializeRowsAndColumns(): void {
         // Initialize rows
-        for (let i = 0; i < this.dataManager.getMaxRows(); i++) {
+        for (let i = 0; i < this.dataManager.getCurrentRows(); i++) {
             this.rows.push(new Row(i, this.dimensions.rowHeight));
         }
 
         // Initialize columns
-        for (let i = 0; i < this.dataManager.getMaxCols(); i++) {
+        for (let i = 0; i < this.dataManager.getCurrentCols(); i++) {
             this.columns.push(new Column(i, this.dimensions.columnWidth));
         }
     }
@@ -90,7 +90,10 @@ export class Grid {
      * @param {number} index The row index
      * @returns {Row} The row object
      */
-    public getRow(index: number): Row {
+    public getRow(index: number): Row | undefined {
+        if (index < 0 || index >= this.rows.length) {
+            return undefined;
+        }
         return this.rows[index];
     }
 
@@ -99,7 +102,10 @@ export class Grid {
      * @param {number} index The column index
      * @returns {Column} The column object
      */
-    public getColumn(index: number): Column {
+    public getColumn(index: number): Column | undefined {
+        if (index < 0 || index >= this.columns.length) {
+            return undefined;
+        }
         return this.columns[index];
     }
 
@@ -180,7 +186,7 @@ export class Grid {
         if (rowIndex >= 0 && rowIndex < this.rows.length) {
             this.rows[rowIndex].select();
             this.selection.start(rowIndex, 0);
-            this.selection.extend(rowIndex, this.dataManager.getMaxCols() - 1);
+            this.selection.extend(rowIndex, this.dataManager.getCurrentCols() - 1);
         }
     }
 
@@ -193,7 +199,7 @@ export class Grid {
         if (colIndex >= 0 && colIndex < this.columns.length) {
             this.columns[colIndex].select();
             this.selection.start(0, colIndex);
-            this.selection.extend(this.dataManager.getMaxRows() - 1, colIndex);
+            this.selection.extend(this.dataManager.getCurrentRows() - 1, colIndex);
         }
     }
 
@@ -212,7 +218,11 @@ export class Grid {
      */
     public loadData(data: any[]): void {
         this.dataManager.loadData(data);
+        
+        // After loading data, we need to update the grid dimensions to match the data size
         this.updateGridDimensions();
+        
+        console.log(`Grid updated with ${this.rows.length} rows and ${this.columns.length} columns`);
     }
 
     /**
@@ -220,9 +230,21 @@ export class Grid {
      * This should be called after data is loaded.
      */
     private updateGridDimensions(): void {
+        // Clear existing rows and columns
         this.rows = [];
         this.columns = [];
-        this.initializeRowsAndColumns();
+        
+        // Initialize rows to match the current rows in the DataManager
+        const currentRows = this.dataManager.getCurrentRows();
+        for (let i = 0; i < currentRows; i++) {
+            this.rows.push(new Row(i, this.dimensions.rowHeight));
+        }
+
+        // Initialize columns to match the current columns in the DataManager
+        const currentCols = this.dataManager.getCurrentCols();
+        for (let i = 0; i < currentCols; i++) {
+            this.columns.push(new Column(i, this.dimensions.columnWidth));
+        }
     }
 
     /**
@@ -250,11 +272,79 @@ export class Grid {
     }
 
     /**
+     * Gets the current number of rows in the grid
+     * @returns {number} The current number of rows
+     */
+    public getCurrentRows(): number {
+        return this.dataManager.getCurrentRows();
+    }
+
+    /**
+     * Gets the current number of columns in the grid
+     * @returns {number} The current number of columns
+     */
+    public getCurrentCols(): number {
+        return this.dataManager.getCurrentCols();
+    }
+
+    /**
+     * Expands the grid with more rows
+     * @param {number} amount The number of rows to add
+     * @returns {boolean} Whether rows were actually added
+     */
+    public expandRows(amount: number): boolean {
+        const currentRowCount = this.rows.length;
+        
+        // Expand the data manager first
+        const expanded = this.dataManager.expandRows(amount);
+        
+        if (expanded) {
+            // Add new row objects
+            for (let i = currentRowCount; i < this.dataManager.getCurrentRows(); i++) {
+                this.rows.push(new Row(i, this.dimensions.rowHeight));
+            }
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * Expands the grid with more columns
+     * @param {number} amount The number of columns to add
+     * @returns {boolean} Whether columns were actually added
+     */
+    public expandColumns(amount: number): boolean {
+        const currentColCount = this.columns.length;
+        
+        // Expand the data manager first
+        const expanded = this.dataManager.expandColumns(amount);
+        
+        if (expanded) {
+            // Add new column objects
+            for (let i = currentColCount; i < this.dataManager.getCurrentCols(); i++) {
+                this.columns.push(new Column(i, this.dimensions.columnWidth));
+            }
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
      * Sets the width of the header column.
      * @param {number} width The new width for the header column.
      */
     public setHeaderWidth(width: number): void {
         this.dimensions.headerWidth = width;
+    }
+
+    /**
+     * Sets the height of the header row.
+     * @param {number} height The new height for the header row.
+     */
+    public setHeaderHeight(height: number): void {
+        this.dimensions.headerHeight = height;
     }
 
     /**

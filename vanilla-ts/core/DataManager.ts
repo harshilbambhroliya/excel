@@ -14,12 +14,32 @@ export class DataManager {
     /** 
      * The maximum number of rows
      */
-    private maxRows: number = 100000;
+    private maxRows: number = 1000000;
 
     /**
      * The maximum number of columns
      */
-    private maxCols: number = 500;
+    private maxCols: number = 1000;
+
+    /**
+     * The initial number of rows to display
+     */
+    private initialRows: number = 100;
+
+    /**
+     * The initial number of columns to display
+     */
+    private initialCols: number = 500;
+
+    /**
+     * The actual number of rows currently displayable
+     */
+    private currentRows: number = 0;
+
+    /**
+     * The actual number of columns currently displayable
+     */
+    private currentCols: number = 0;
 
     /**
      * The constructor
@@ -32,6 +52,8 @@ export class DataManager {
      * Initializes an empty grid
      */
     private initializeEmptyGrid(): void {
+        this.currentRows = this.initialRows;
+        this.currentCols = this.initialCols;
     }
 
     /**
@@ -95,9 +117,29 @@ export class DataManager {
         // Clear existing data
         this.data.clear();
         
-        this.maxRows = records.length + 1; // +1 for header row
+        // Get the actual number of rows from the data, with a minimum of initialRows
+        this.maxRows = Math.max(records.length + 1, this.initialRows); // +1 for header row
+        
+        // Determine the number of columns based on the record structure
+        // For our standard IDataRecord, we have 5 columns: ID, First Name, Last Name, Age, Salary
+        let columnsInData = 50;
+        
+        // If we have sample data, inspect the first record to count properties
+        if (records.length > 0) {
+            const firstRecord = records[0];
+            const propertyCount = Object.keys(firstRecord).length;
+            
+            // Only update if we detected more columns than our default
+            if (propertyCount > columnsInData) {
+                columnsInData = propertyCount;
+                console.log(`Detected ${columnsInData} columns in data`);
+            }
+        }
+        
+        // Set max columns with a minimum of initialCols
+        this.maxCols = Math.max(columnsInData, this.initialCols);
 
-        // Set headers
+        // Set standard headers
         this.setCell(0, 0, 'ID');
         this.setCell(0, 1, 'First Name');
         this.setCell(0, 2, 'Last Name');
@@ -113,6 +155,17 @@ export class DataManager {
             this.setCell(row, 3, record.age);
             this.setCell(row, 4, record.salary);
         });
+
+        const rowBuffer = 20; 
+        const colBuffer = 5; 
+        
+        // Set current rows to the data length plus header and buffer, but not exceeding maxRows
+        this.currentRows = Math.min(records.length + 1 + rowBuffer, this.maxRows);
+        
+        // Set current columns to the number of columns in the data plus buffer, but not exceeding maxCols
+        this.currentCols = Math.min(columnsInData + colBuffer, this.maxCols);
+        
+        console.log(`Data loaded: Rows set to ${this.currentRows}, Columns set to ${this.currentCols}`);
     }
 
     /**
@@ -151,5 +204,55 @@ export class DataManager {
      */
     public getMaxCols(): number {
         return this.maxCols;
+    }
+
+    /**
+     * Gets the current number of rows being displayed
+     * @returns The current number of rows
+     */
+    public getCurrentRows(): number {
+        return this.currentRows;
+    }
+
+    /**
+     * Gets the current number of columns being displayed
+     * @returns The current number of columns
+     */
+    public getCurrentCols(): number {
+        return this.currentCols;
+    }
+
+    /**
+     * Expands the number of rows by the specified amount
+     * @param amount - The number of rows to add
+     * @returns boolean - Whether rows were actually added
+     */
+    public expandRows(amount: number): boolean {
+        const newRowCount = Math.min(this.currentRows + amount, this.maxRows);
+        
+        if (newRowCount > this.currentRows) {
+            this.currentRows = newRowCount;
+            console.log(`Expanded to ${this.currentRows} rows`);
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * Expands the number of columns by the specified amount
+     * @param amount - The number of columns to add
+     * @returns boolean - Whether columns were actually added
+     */
+    public expandColumns(amount: number): boolean {
+        const newColCount = Math.min(this.currentCols + amount, this.maxCols);
+        
+        if (newColCount > this.currentCols) {
+            this.currentCols = newColCount;
+            console.log(`Expanded to ${this.currentCols} columns`);
+            return true;
+        }
+        
+        return false;
     }
 }

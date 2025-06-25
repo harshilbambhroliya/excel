@@ -1,7 +1,7 @@
 // src/core/EventHandler.ts
 import { Grid } from './Grid.js';
 import { Renderer } from './Renderer.js';
-import { CommandManager } from '../commands/Command.js';
+import { CommandManager, CompositeCommand } from '../commands/Command.js';
 import { EditCellCommand } from '../commands/EditCellCommand.js';
 import { ResizeColumnCommand } from '../commands/ResizeColumnCommand.js';
 import { ResizeRowCommand } from '../commands/ResizeRowCommand.js';
@@ -193,25 +193,34 @@ export class EventHandler {
             const zoomFactor = this.renderer.getZoom();
             const scrollY = this.renderer.getScrollPosition().y;
             
-            // Use renderer's helper method to get row position accounting for zoom
+            // Convert screen Y to grid Y coordinate
+            const contentY = (event.offsetY - dimensions.headerHeight) / zoomFactor + scrollY;
+            const gridY = contentY + dimensions.headerHeight;
+            
+            // Find the row using binary search for better performance
             let row = -1;
-            const adjustedY = event.offsetY;
+            let left = 0;
+            let right = this.grid.getMaxRows() - 1;
             
-            // We'll use a method similar to getCellAtPosition but for row headers
-            let currentY = dimensions.headerHeight;
-            
-            for (let i = 0; i < this.grid.getMaxRows(); i++) {
-                // When calculating header positions, we need to account for zoom
-                const rowHeight = this.grid.getRowHeight(i) * zoomFactor;
-                const rowTop = currentY - (scrollY * zoomFactor);
-                const rowBottom = rowTop + rowHeight;
+            while (left <= right) {
+                const mid = Math.floor((left + right) / 2);
                 
-                if (adjustedY >= rowTop && adjustedY < rowBottom) {
-                    row = i;
-                    break;
+                // Calculate row boundaries
+                let rowTop = dimensions.headerHeight;
+                for (let i = 0; i < mid; i++) {
+                    rowTop += this.grid.getRowHeight(i);
                 }
                 
-                currentY += rowHeight;
+                const rowBottom = rowTop + this.grid.getRowHeight(mid);
+                
+                if (gridY >= rowTop && gridY < rowBottom) {
+                    row = mid;
+                    break;
+                } else if (gridY < rowTop) {
+                    right = mid - 1;
+                } else {
+                    left = mid + 1;
+                }
             }
             
             if (row >= 0 && row < this.grid.getMaxRows()) {
@@ -228,24 +237,34 @@ export class EventHandler {
             const zoomFactor = this.renderer.getZoom();
             const scrollX = this.renderer.getScrollPosition().x;
             
-            // Use a method similar to getCellAtPosition but for column headers
+            // Convert screen X to grid X coordinate
+            const contentX = (event.offsetX - dimensions.headerWidth) / zoomFactor + scrollX;
+            const gridX = contentX + dimensions.headerWidth;
+            
+            // Find the column using binary search for better performance
             let col = -1;
-            const adjustedX = event.offsetX;
+            let left = 0;
+            let right = this.grid.getMaxCols() - 1;
             
-            let currentX = dimensions.headerWidth;
-            
-            for (let i = 0; i < this.grid.getMaxCols(); i++) {
-                // When calculating header positions, we need to account for zoom
-                const colWidth = this.grid.getColumnWidth(i) * zoomFactor;
-                const colLeft = currentX - (scrollX * zoomFactor);
-                const colRight = colLeft + colWidth;
+            while (left <= right) {
+                const mid = Math.floor((left + right) / 2);
                 
-                if (adjustedX >= colLeft && adjustedX < colRight) {
-                    col = i;
-                    break;
+                // Calculate column boundaries
+                let colLeft = dimensions.headerWidth;
+                for (let i = 0; i < mid; i++) {
+                    colLeft += this.grid.getColumnWidth(i);
                 }
                 
-                currentX += colWidth;
+                const colRight = colLeft + this.grid.getColumnWidth(mid);
+                
+                if (gridX >= colLeft && gridX < colRight) {
+                    col = mid;
+                    break;
+                } else if (gridX < colLeft) {
+                    right = mid - 1;
+                } else {
+                    left = mid + 1;
+                }
             }
             
             if (col >= 0 && col < this.grid.getMaxCols()) {
@@ -484,30 +503,17 @@ export class EventHandler {
                     this.updateSelectionStats();}
                     break;
                 case 'ArrowRight':
-                    
-                   {
-                    event.preventDefault();
-                    // go to the last column
-                    for(let i = 0; i < this.grid.getMaxCols(); i++){
-                        newCol = i;
-                    }
-                    return;
-                   }
-                    
+                    newCol = this.grid.getMaxCols() - 1;
+                    break;
                 case 'ArrowLeft':
-                    // go to the first column
-                    {event.preventDefault();
-                    }
-                    
+                    newCol = 0;
+                    break;
                 case 'ArrowDown':
-                    // go to the last row
-                   { event.preventDefault();
-                   
-                    }
+                    newRow = this.grid.getMaxRows() - 1;
+                    break;
                 case 'ArrowUp':
-                    // go to the first row
-                   { }
-                    
+                    newRow = 0;
+                    break;
                 default:
             }
         } 
@@ -770,17 +776,26 @@ export class EventHandler {
     }
 
     /**
-     * Deletes the selected cells
+     * Deletes the selected cells as a single undoable operation
      */
     private deleteSelectedCells(): void {
         const selection = this.grid.getSelection();
         if (!selection.isActive) return;
         
         const positions = selection.getRange();
+        
+        const compositeCommand = new CompositeCommand();
+        
+        
         positions.forEach(pos => {
+            const cell = this.grid.getCell(pos.row, pos.col);
             const command = new EditCellCommand(this.grid, pos.row, pos.col, '');
-            this.commandManager.executeCommand(command);
+            compositeCommand.addCommand(command);
         });
+        
+        if (compositeCommand.count() > 0) {
+            this.commandManager.executeCommand(compositeCommand);
+        }
         
         this.renderer.render();
         this.updateSelectionStats();
@@ -797,24 +812,32 @@ export class EventHandler {
         const scrollPos = this.renderer.getScrollPosition();
         const zoomFactor = this.renderer.getZoom();
         
-        // Calculate x position by summing the widths of all columns before the target column
-        // Apply zoom to all calculations to ensure proper positioning
-        let x = dimensions.headerWidth - scrollPos.x * zoomFactor;
+        // Use the renderer's position calculation if available
+        let xPos = 0;
+        let yPos = 0;
+        
+        // Get the column position (unzoomed)
+        let colPos = dimensions.headerWidth;
         for (let i = 0; i < col; i++) {
-            x += this.grid.getColumnWidth(i) * zoomFactor;
+            colPos += this.grid.getColumnWidth(i);
         }
         
-        // Calculate y position by summing the heights of all rows before the target row
-        let y = dimensions.headerHeight - scrollPos.y * zoomFactor;
+        // Get the row position (unzoomed)
+        let rowPos = dimensions.headerHeight;
         for (let i = 0; i < row; i++) {
-            y += this.grid.getRowHeight(i) * zoomFactor;
+            rowPos += this.grid.getRowHeight(i);
         }
+        
+        // Calculate zoomed position with proper scroll offset
+        // Formula: header + (position - header - scroll) * zoom
+        xPos = dimensions.headerWidth + (colPos - dimensions.headerWidth - scrollPos.x) * zoomFactor;
+        yPos = dimensions.headerHeight + (rowPos - dimensions.headerHeight - scrollPos.y) * zoomFactor;
         
         // Apply zoom to width and height to ensure correct sizing
         const width = this.grid.getColumnWidth(col) * zoomFactor;
         const height = this.grid.getRowHeight(row) * zoomFactor;
         
-        return { x, y, width, height };
+        return { x: xPos, y: yPos, width, height };
     }
 
     /**
@@ -935,11 +958,16 @@ export class EventHandler {
             const zoomFactor = this.renderer.getZoom();
             
             // Position the editor at the exact cell position
-            // cellRect already includes zoom factor adjustments
-            this.cellEditor.style.left = (canvasRect.left + cellRect.x) + 'px';
-            this.cellEditor.style.top = (canvasRect.top + cellRect.y) + 'px';
-            this.cellEditor.style.width = cellRect.width + 'px';
-            this.cellEditor.style.height = cellRect.height + 'px';
+            // Make sure we align to pixel boundaries for sharp rendering
+            const left = Math.round(canvasRect.left + cellRect.x);
+            const top = Math.round(canvasRect.top + cellRect.y);
+            const width = Math.round(cellRect.width);
+            const height = Math.round(cellRect.height);
+            
+            this.cellEditor.style.left = left + 'px';
+            this.cellEditor.style.top = top + 'px';
+            this.cellEditor.style.width = width + 'px';
+            this.cellEditor.style.height = height + 'px';
             
             // Update font size based on zoom factor
             this.cellEditor.style.fontSize = (this.BASE_EDITOR_FONT_SIZE * zoomFactor) + 'px';
