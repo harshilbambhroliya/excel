@@ -370,7 +370,6 @@ export class EventHandler {
             this.contextMenuPosition = null;
         }
     }
-
     /**
      * Inserts a row at the specified position
      * @param position - The position where the row will be inserted
@@ -382,9 +381,19 @@ export class EventHandler {
         // Update the positions in the renderer and refresh scrollbars
         this.renderer.recalculatePositions();
         this.renderer.refreshScrollbars();
+
+        // Select the newly inserted row
+        this.grid.clearAllSelections();
+        this.grid
+            .getSelection()
+            .start(position, this.grid.getSelection().startCol);
+        this.highlightHeadersForCell(
+            position,
+            this.grid.getSelection().startCol
+        );
+
         this.renderer.render();
     }
-
     /**
      * Inserts a column at the specified position
      * @param position - The position where the column will be inserted
@@ -396,6 +405,17 @@ export class EventHandler {
         // Update the positions in the renderer and refresh scrollbars
         this.renderer.recalculatePositions();
         this.renderer.refreshScrollbars();
+
+        // Select the newly inserted column
+        this.grid.clearAllSelections();
+        this.grid
+            .getSelection()
+            .start(this.grid.getSelection().startRow, position);
+        this.highlightHeadersForCell(
+            this.grid.getSelection().startRow,
+            position
+        );
+
         this.renderer.render();
     }
 
@@ -827,9 +847,7 @@ export class EventHandler {
             this.renderer.render();
             event.preventDefault();
             return;
-        }
-
-        // Keyboard shortcuts for inserting rows and columns
+        } // Keyboard shortcuts for inserting rows and columns
         if (event.ctrlKey && event.shiftKey) {
             const selection = this.grid.getSelection();
 
@@ -1932,7 +1950,9 @@ export class EventHandler {
      * @param row - The row index
      * @param col - The column index
      */
-    private highlightHeadersForCell(row: number, col: number): void {
+    public highlightHeadersForCell(row: number, col: number): void {
+        console.log(`Highlighting headers for cell at (${row}, ${col})`);
+
         // Get the row and column objects
         const rowObj = this.grid.getRow(row);
         const colObj = this.grid.getColumn(col);
