@@ -83,10 +83,10 @@ export class Renderer {
         }
         this.ctx = ctx;
 
+        this.calculateAndSetRowHeaderWidth();
         this.setupCanvas();
         this.calculateViewport();
         this.calculatePositions();
-        this.calculateAndSetRowHeaderWidth();
     }
 
     /**
@@ -183,9 +183,11 @@ export class Renderer {
             this.scrollY = Math.max(0, contentHeight - this.viewport.height);
         }
         
+        // Adjust viewport size to account for scrollbar width (typically 16px)
+        const scrollbarWidth = 16;
         this.scrollbarManager.updateScrollbars(
-            this.viewport.width,
-            this.viewport.height,
+            this.viewport.width - scrollbarWidth,
+            this.viewport.height - scrollbarWidth,
             contentWidth,
             contentHeight
         );
@@ -297,16 +299,11 @@ export class Renderer {
         // Get the actual device pixel ratio
         this.devicePixelRatio = window.devicePixelRatio || 1;
         
-        // Set actual size in memory (scaled for both high DPI and zoom)
-        // This ensures sharp rendering at any zoom level
         this.canvas.width = width * this.devicePixelRatio;
         this.canvas.height = height * this.devicePixelRatio;
         
         // Reset the transform matrix before scaling to prevent cumulative scaling
         this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-        
-        // Scale the context to ensure correct drawing operations
-        // We scale by devicePixelRatio to handle high DPI screens
         this.ctx.scale(this.devicePixelRatio, this.devicePixelRatio);
         
         // Set display size (css pixels) to fill container completely
@@ -353,14 +350,11 @@ export class Renderer {
         
         // Recalculate positions whenever rendering
         this.calculatePositions();
-        
-        // Check if we need to expand the grid based on the current view
-        // This helps with zoom changes and other cases where more content becomes visible
         this.checkForGridExpansionNeeds();
         
-        this.calculateAndSetRowHeaderWidth();
         this.renderHeaders();
         this.renderContent();
+        this.calculateAndSetRowHeaderWidth();
     }
     
     /**
@@ -574,7 +568,7 @@ export class Renderer {
                 this.ctx.fillRect(0, yPos, dimensions.headerWidth, rowHeight);
                 this.ctx.fillStyle = '#0F703B'; // Excel uses green for selection text
                 const selectedHeaderFontSize = Math.max(16 * this.zoomFactor, 9); // Min size of 9px
-                this.ctx.font = `Bold ${selectedHeaderFontSize}px Calibri`;
+                this.ctx.font = `${selectedHeaderFontSize}px Calibri`;
                 // draw line at right of the selected row
                 this.ctx.strokeStyle = '#0F703B';
                 this.ctx.lineWidth = 5 / this.devicePixelRatio;
@@ -662,7 +656,7 @@ export class Renderer {
                 this.ctx.fillRect(xPos, 0, colWidth, dimensions.headerHeight);
                 this.ctx.fillStyle = '#0F703B'; // Excel uses green for selection text
                 const selectedColHeaderFontSize = Math.max(16 * this.zoomFactor, 9); // Min size of 9px
-                this.ctx.font = `Bold ${selectedColHeaderFontSize}px Calibri`;
+                this.ctx.font = `${selectedColHeaderFontSize}px Calibri`;
                 // draw line at bottom of the selected column
                 this.ctx.strokeStyle = '#0F703B';
                 this.ctx.lineWidth = 4 / this.devicePixelRatio;
@@ -1294,8 +1288,10 @@ export class Renderer {
     /**
      * Sets the zoom factor
      * @param {number} zoom The zoom factor to set
+     * @param {number} cursorX Optional X position of the cursor for zoom centering
+     * @param {number} cursorY Optional Y position of the cursor for zoom centering
      */
-    public setZoom(zoom: number): void {
+    public setZoom(zoom: number, cursorX?: number, cursorY?: number): void {
         // Clamp zoom value between min and max
         const newZoom = Math.max(this.minZoom, Math.min(this.maxZoom, zoom));
         
@@ -1305,16 +1301,38 @@ export class Renderer {
         // Store the old zoom factor to determine if we're zooming in or out
         const oldZoom = this.zoomFactor;
         
-        // Calculate current center position in grid coordinates
-        const centerX = this.scrollX + this.viewport.width / 2 / this.zoomFactor;
-        const centerY = this.scrollY + this.viewport.height / 2 / this.zoomFactor;
+        // Get grid dimensions
+        const dimensions = this.grid.getDimensions();
+        
+        // Calculate focal point in grid coordinates based on cursor position or screen center
+        let focalX: number, focalY: number;
+        
+        if (cursorX !== undefined && cursorY !== undefined) {
+            // If cursor position is provided, use it as the focal point
+            // First determine if cursor is in content area (not headers)
+            const isInContent = cursorX > dimensions.headerWidth && cursorY > dimensions.headerHeight;
+            
+            if (isInContent) {
+                // Convert cursor position to grid coordinates with current zoom
+                focalX = this.scrollX + (cursorX - dimensions.headerWidth) / this.zoomFactor;
+                focalY = this.scrollY + (cursorY - dimensions.headerHeight) / this.zoomFactor;
+            } else {
+                // If cursor is in headers, use screen center for zooming
+                focalX = this.scrollX + this.viewport.width / 2 / this.zoomFactor;
+                focalY = this.scrollY + this.viewport.height / 2 / this.zoomFactor;
+            }
+        } else {
+            // Default to screen center if no cursor position is provided
+            focalX = this.scrollX + this.viewport.width / 2 / this.zoomFactor;
+            focalY = this.scrollY + this.viewport.height / 2 / this.zoomFactor;
+        }
         
         // Set new zoom factor
         this.zoomFactor = newZoom;
         
-        // Recalculate scroll position to maintain the same center point
-        this.scrollX = centerX - this.viewport.width / 2 / this.zoomFactor;
-        this.scrollY = centerY - this.viewport.height / 2 / this.zoomFactor;
+        // Recalculate scroll position to maintain the same focal point
+        this.scrollX = focalX - (cursorX !== undefined ? (cursorX - dimensions.headerWidth) : this.viewport.width / 2) / this.zoomFactor;
+        this.scrollY = focalY - (cursorY !== undefined ? (cursorY - dimensions.headerHeight) : this.viewport.height / 2) / this.zoomFactor;
         
         // Ensure scroll positions don't go negative
         this.scrollX = Math.max(0, this.scrollX);
@@ -1406,16 +1424,20 @@ export class Renderer {
 
     /**
      * Increases the zoom factor
+     * @param {number} cursorX Optional X position of the cursor for zoom centering
+     * @param {number} cursorY Optional Y position of the cursor for zoom centering
      */
-    public zoomIn(): void {
-        this.setZoom(this.zoomFactor * 1.2); // Increase by 20%
+    public zoomIn(cursorX?: number, cursorY?: number): void {
+        this.setZoom(this.zoomFactor * 1.2, cursorX, cursorY); // Increase by 20%
     }
     
     /**
      * Decreases the zoom factor
+     * @param {number} cursorX Optional X position of the cursor for zoom centering
+     * @param {number} cursorY Optional Y position of the cursor for zoom centering
      */
-    public zoomOut(): void {
-        this.setZoom(this.zoomFactor / 1.2); // Decrease by 20%
+    public zoomOut(cursorX?: number, cursorY?: number): void {
+        this.setZoom(this.zoomFactor / 1.2, cursorX, cursorY); // Decrease by 20%
     }
     
     /**
@@ -1440,13 +1462,22 @@ export class Renderer {
             
             // Determine zoom direction based on wheel delta
             const delta = -Math.sign(event.deltaY);
+
+            const rect = this.canvas.getBoundingClientRect();
+            const cursorX = event.clientX - rect.left;
+            const cursorY = event.clientY - rect.top;
+            
+            // Calculate new zoom factor
+            const currentZoom = this.zoomFactor;
+            let newZoom: number;
             
             if (delta > 0) {
-                this.zoomIn();
-            } else if (delta < 0) {
-                this.zoomOut();
+                newZoom = currentZoom * 1.2; // Zoom in by 20%
+            } else {
+                newZoom = currentZoom / 1.2; // Zoom out by 20%
             }
             // No need to call render here as it's already called in zoomIn/zoomOut via setZoom
+            this.setZoom(newZoom, cursorX, cursorY);
             return true;
         }
         

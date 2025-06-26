@@ -225,6 +225,9 @@ export class EventHandler {
             
             if (row >= 0 && row < this.grid.getMaxRows()) {
                 this.grid.selectRow(row);
+                for(let i = 0; i < this.grid.getMaxCols(); i++){
+                    this.highlightHeadersForCell(row, i);
+                }
                 this.renderer.render();
                 this.updateSelectionStats();
                 return;
@@ -269,6 +272,9 @@ export class EventHandler {
             
             if (col >= 0 && col < this.grid.getMaxCols()) {
                 this.grid.selectColumn(col);
+                for(let i = 0; i < this.grid.getMaxRows(); i++){
+                    this.highlightHeadersForCell(i, col);
+                }
                 this.renderer.render();
                 this.updateSelectionStats();
                 return;
@@ -537,9 +543,6 @@ export class EventHandler {
                         this.grid.clearAllSelections();
                         selection.start(newRow, newCol);
                         this.renderer.dottedLineAcrossSelection = false;
-                        // render the copied text
-                        
-                        // Paste clipboard content
                         navigator.clipboard.readText().then(text => {
                             const rows = text.trim().split('\n');
                             const compositeCommand = new CompositeCommand();
@@ -635,6 +638,7 @@ export class EventHandler {
                     newRow = Math.max(0, newRow - 1);
                     this.grid.clearAllSelections();
                     selection.start(newRow, newCol);
+                    this.highlightHeadersForCell(newRow, newCol);
                     this.renderer.render();
                     this.updateSelectionStats();
                     break;
@@ -643,6 +647,7 @@ export class EventHandler {
                     newRow = Math.min(this.grid.getMaxRows() - 1, newRow + 1);
                     this.grid.clearAllSelections();
                     selection.start(newRow, newCol);
+                    this.highlightHeadersForCell(newRow, newCol);
                     this.renderer.render();
                     this.updateSelectionStats();
                     break;
@@ -651,6 +656,7 @@ export class EventHandler {
                     newCol = Math.max(0, newCol - 1);
                     this.grid.clearAllSelections();
                     selection.start(newRow, newCol);
+                    this.highlightHeadersForCell(newRow, newCol);
                     this.renderer.render();
                     this.updateSelectionStats();
                     break;
@@ -659,6 +665,7 @@ export class EventHandler {
                     newCol = Math.min(this.grid.getMaxCols() - 1, newCol + 1);
                     this.grid.clearAllSelections();
                     selection.start(newRow, newCol);
+                    this.highlightHeadersForCell(newRow, newCol);
                     this.renderer.render();
                     this.updateSelectionStats();
                     break;

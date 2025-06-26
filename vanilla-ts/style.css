@@ -92,14 +92,16 @@ body {
   cursor: cell;
   display: block;
   background: white;
-  width: 100% !important; /* Force full width */
-  height: 100% !important; /* Force full height */
+  width: 100% !important; /* Keep full width */
+  height: 100% !important; /* Keep full height */
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
   object-fit: contain; /* Ensure content stays proportional but takes full space */
+  image-rendering: -webkit-optimize-contrast; /* Improve rendering sharpness on Chrome */
+  image-rendering: crisp-edges; /* Improve rendering sharpness on Firefox */
 }
 
 #excelCanvas:focus {
@@ -113,6 +115,7 @@ body {
   right: 0;
   bottom: 0;
   pointer-events: none;
+  z-index: 100; /* Ensure scrollbars appear above canvas content */
 }
 
 .scrollbar {
