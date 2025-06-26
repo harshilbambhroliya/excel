@@ -1,9 +1,9 @@
 // src/core/Grid.ts
-import { Row } from '../models/Row.js';
-import { Column } from '../models/Column.js';
-import { Selection } from '../models/Selection.js';
-import { DataManager } from './DataManager.js';
-import { IGridDimensions } from '../types/interfaces.js';
+import { Row } from "../models/Row.js";
+import { Column } from "../models/Column.js";
+import { Selection } from "../models/Selection.js";
+import { DataManager } from "./DataManager.js";
+import { IGridDimensions } from "../types/interfaces.js";
 
 /**
  * Manages the grid structure and data for the spreadsheet
@@ -11,16 +11,16 @@ import { IGridDimensions } from '../types/interfaces.js';
 export class Grid {
     /** @type {Row[]} Collection of row objects in the grid */
     private rows: Row[] = [];
-    
+
     /** @type {Column[]} Collection of column objects in the grid */
     private columns: Column[] = [];
-    
+
     /** @type {DataManager} Manages the cell data in the grid */
     private dataManager: DataManager;
-    
+
     /** @type {Selection} Manages the current selection in the grid */
     private selection: Selection;
-    
+
     /** @type {IGridDimensions} Stores the dimensions of grid components */
     private dimensions: IGridDimensions;
 
@@ -34,7 +34,7 @@ export class Grid {
             rowHeight: 25,
             columnWidth: 80,
             headerHeight: 30,
-            headerWidth: 60
+            headerWidth: 60,
         };
 
         this.initializeRowsAndColumns();
@@ -116,12 +116,130 @@ export class Grid {
     public getSelection(): Selection {
         return this.selection;
     }
-    
+
     /**
      * Clears all data in the grid
      */
     public clear(): void {
         this.dataManager.clear();
+    }
+
+    /**
+     * Inserts a row at the specified position
+     * @param {number} rowIndex The position where the row will be inserted
+     * @returns {boolean} Whether the row was successfully inserted
+     */
+    public insertRow(rowIndex: number): boolean {
+        if (rowIndex < 0 || rowIndex > this.rows.length) {
+            console.error(`Invalid row index for insertion: ${rowIndex}`);
+            return false;
+        }
+
+        // Insert row in the data manager
+        const success = this.dataManager.insertRow(rowIndex);
+        if (!success) {
+            return false;
+        }
+
+        // Update row objects
+        const newRow = new Row(rowIndex, this.dimensions.rowHeight);
+        this.rows.splice(rowIndex, 0, newRow);
+
+        // Update indices of all rows after the inserted row
+        for (let i = rowIndex + 1; i < this.rows.length; i++) {
+            this.rows[i].setIndex(i);
+        }
+
+        console.log(`Row inserted at position ${rowIndex}`);
+        return true;
+    }
+
+    /**
+     * Removes a row at the specified position
+     * @param {number} rowIndex The position of the row to remove
+     * @returns {boolean} Whether the row was successfully removed
+     */
+    public removeRow(rowIndex: number): boolean {
+        if (rowIndex < 0 || rowIndex >= this.rows.length) {
+            console.error(`Invalid row index for removal: ${rowIndex}`);
+            return false;
+        }
+
+        // Remove row from the data manager
+        const success = this.dataManager.removeRow(rowIndex);
+        if (!success) {
+            return false;
+        }
+
+        // Remove row object
+        this.rows.splice(rowIndex, 1);
+
+        // Update indices of all rows after the removed row
+        for (let i = rowIndex; i < this.rows.length; i++) {
+            this.rows[i].setIndex(i);
+        }
+
+        console.log(`Row removed from position ${rowIndex}`);
+        return true;
+    }
+
+    /**
+     * Inserts a column at the specified position
+     * @param {number} colIndex The position where the column will be inserted
+     * @returns {boolean} Whether the column was successfully inserted
+     */
+    public insertColumn(colIndex: number): boolean {
+        if (colIndex < 0 || colIndex > this.columns.length) {
+            console.error(`Invalid column index for insertion: ${colIndex}`);
+            return false;
+        }
+
+        // Insert column in the data manager
+        const success = this.dataManager.insertColumn(colIndex);
+        if (!success) {
+            return false;
+        }
+
+        // Update column objects
+        const newColumn = new Column(colIndex, this.dimensions.columnWidth);
+        this.columns.splice(colIndex, 0, newColumn);
+
+        // Update indices of all columns after the inserted column
+        for (let i = colIndex + 1; i < this.columns.length; i++) {
+            this.columns[i].setIndex(i);
+        }
+
+        console.log(`Column inserted at position ${colIndex}`);
+        return true;
+    }
+
+    /**
+     * Removes a column at the specified position
+     * @param {number} colIndex The position of the column to remove
+     * @returns {boolean} Whether the column was successfully removed
+     */
+    public removeColumn(colIndex: number): boolean {
+        if (colIndex < 0 || colIndex >= this.columns.length) {
+            console.error(`Invalid column index for removal: ${colIndex}`);
+            return false;
+        }
+
+        // Remove column from the data manager
+        const success = this.dataManager.removeColumn(colIndex);
+        if (!success) {
+            return false;
+        }
+
+        // Remove column object
+        this.columns.splice(colIndex, 1);
+
+        // Update indices of all columns after the removed column
+        for (let i = colIndex; i < this.columns.length; i++) {
+            this.columns[i].setIndex(i);
+        }
+
+        console.log(`Column removed from position ${colIndex}`);
+        return true;
     }
 
     /**
@@ -134,9 +252,11 @@ export class Grid {
             const oldHeight = this.rows[rowIndex].height;
             const newHeight = Math.max(15, height); // Ensure minimum height
             this.rows[rowIndex].setHeight(newHeight);
-            
+
             // Log for debugging
-            console.log(`Row ${rowIndex} height changed from ${oldHeight} to ${newHeight}`);
+            console.log(
+                `Row ${rowIndex} height changed from ${oldHeight} to ${newHeight}`
+            );
         }
     }
 
@@ -186,7 +306,10 @@ export class Grid {
         if (rowIndex >= 0 && rowIndex < this.rows.length) {
             this.rows[rowIndex].select();
             this.selection.start(rowIndex, 0);
-            this.selection.extend(rowIndex, this.dataManager.getCurrentCols() - 1);
+            this.selection.extend(
+                rowIndex,
+                this.dataManager.getCurrentCols() - 1
+            );
         }
     }
 
@@ -199,7 +322,10 @@ export class Grid {
         if (colIndex >= 0 && colIndex < this.columns.length) {
             this.columns[colIndex].select();
             this.selection.start(0, colIndex);
-            this.selection.extend(this.dataManager.getCurrentRows() - 1, colIndex);
+            this.selection.extend(
+                this.dataManager.getCurrentRows() - 1,
+                colIndex
+            );
         }
     }
 
@@ -207,8 +333,8 @@ export class Grid {
      * Clears all selections in the grid
      */
     public clearAllSelections(): void {
-        this.rows.forEach(row => row.deselect());
-        this.columns.forEach(col => col.deselect());
+        this.rows.forEach((row) => row.deselect());
+        this.columns.forEach((col) => col.deselect());
         this.selection.clear();
     }
 
@@ -218,11 +344,13 @@ export class Grid {
      */
     public loadData(data: any[]): void {
         this.dataManager.loadData(data);
-        
+
         // After loading data, we need to update the grid dimensions to match the data size
         this.updateGridDimensions();
-        
-        console.log(`Grid updated with ${this.rows.length} rows and ${this.columns.length} columns`);
+
+        console.log(
+            `Grid updated with ${this.rows.length} rows and ${this.columns.length} columns`
+        );
     }
 
     /**
@@ -233,7 +361,7 @@ export class Grid {
         // Clear existing rows and columns
         this.rows = [];
         this.columns = [];
-        
+
         // Initialize rows to match the current rows in the DataManager
         const currentRows = this.dataManager.getCurrentRows();
         for (let i = 0; i < currentRows; i++) {
@@ -294,18 +422,22 @@ export class Grid {
      */
     public expandRows(amount: number): boolean {
         const currentRowCount = this.rows.length;
-        
+
         // Expand the data manager first
         const expanded = this.dataManager.expandRows(amount);
-        
+
         if (expanded) {
             // Add new row objects
-            for (let i = currentRowCount; i < this.dataManager.getCurrentRows(); i++) {
+            for (
+                let i = currentRowCount;
+                i < this.dataManager.getCurrentRows();
+                i++
+            ) {
                 this.rows.push(new Row(i, this.dimensions.rowHeight));
             }
             return true;
         }
-        
+
         return false;
     }
 
@@ -316,18 +448,22 @@ export class Grid {
      */
     public expandColumns(amount: number): boolean {
         const currentColCount = this.columns.length;
-        
+
         // Expand the data manager first
         const expanded = this.dataManager.expandColumns(amount);
-        
+
         if (expanded) {
             // Add new column objects
-            for (let i = currentColCount; i < this.dataManager.getCurrentCols(); i++) {
+            for (
+                let i = currentColCount;
+                i < this.dataManager.getCurrentCols();
+                i++
+            ) {
                 this.columns.push(new Column(i, this.dimensions.columnWidth));
             }
             return true;
         }
-        
+
         return false;
     }
 
@@ -353,7 +489,7 @@ export class Grid {
      */
     public getCellsInSelection(): any[] {
         if (!this.selection.isActive) return [];
-        
+
         return this.dataManager.getCellsInRange(
             this.selection.startRow,
             this.selection.startCol,
@@ -370,15 +506,20 @@ export class Grid {
      * @param endCol - The ending column index
      * @returns {any[]} Array of cells in the range
      */
-    public getCellsInRange(startRow: number, startCol: number, endRow: number, endCol: number): any[] {
+    public getCellsInRange(
+        startRow: number,
+        startCol: number,
+        endRow: number,
+        endCol: number
+    ): any[] {
         const cells: any[] = [];
-        
+
         for (let row = startRow; row <= endRow; row++) {
             for (let col = startCol; col <= endCol; col++) {
                 cells.push(this.getCell(row, col));
             }
         }
-        
+
         return cells;
     }
 
@@ -387,14 +528,68 @@ export class Grid {
      */
     public clearHeaderSelections(): void {
         // Deselect all row headers
-        this.rows.forEach(row => row.deselect());
-        
+        this.rows.forEach((row) => row.deselect());
+
         // Deselect all column headers
-        this.columns.forEach(col => col.deselect());
+        this.columns.forEach((col) => col.deselect());
     }
 
     public selectAll(): void {
-        this.rows.forEach(row => row.select());
-        this.columns.forEach(col => col.select());
+        this.rows.forEach((row) => row.select());
+        this.columns.forEach((col) => col.select());
+    }
+
+    /**
+     * Selects multiple rows
+     * @param {number} startRowIndex The starting row index to select
+     * @param {number} endRowIndex The ending row index to select
+     */
+    public selectRowRange(startRowIndex: number, endRowIndex: number): void {
+        this.clearAllSelections();
+
+        // Ensure valid indices
+        const minRow = Math.max(0, Math.min(startRowIndex, endRowIndex));
+        const maxRow = Math.min(
+            this.rows.length - 1,
+            Math.max(startRowIndex, endRowIndex)
+        );
+
+        // Select all rows in the range
+        for (let row = minRow; row <= maxRow; row++) {
+            this.rows[row].select();
+        }
+
+        // Set the selection to cover all cells in the row range
+        this.selection.start(minRow, 0);
+        this.selection.extend(maxRow, this.dataManager.getCurrentCols() - 1);
+
+        console.log(`Selected rows from ${minRow} to ${maxRow}`);
+    }
+
+    /**
+     * Selects multiple columns
+     * @param {number} startColIndex The starting column index to select
+     * @param {number} endColIndex The ending column index to select
+     */
+    public selectColumnRange(startColIndex: number, endColIndex: number): void {
+        this.clearAllSelections();
+
+        // Ensure valid indices
+        const minCol = Math.max(0, Math.min(startColIndex, endColIndex));
+        const maxCol = Math.min(
+            this.columns.length - 1,
+            Math.max(startColIndex, endColIndex)
+        );
+
+        // Select all columns in the range
+        for (let col = minCol; col <= maxCol; col++) {
+            this.columns[col].select();
+        }
+
+        // Set the selection to cover all cells in the column range
+        this.selection.start(0, minCol);
+        this.selection.extend(this.dataManager.getCurrentRows() - 1, maxCol);
+
+        console.log(`Selected columns from ${minCol} to ${maxCol}`);
     }
 }

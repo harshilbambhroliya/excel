@@ -52,6 +52,15 @@ export class Column {
     }
 
     /**
+     * Sets the index of the column and updates the header
+     * @param {number} index The new index
+     */
+    public setIndex(index: number): void {
+        this.index = index;
+        this.header = this.generateColumnHeader(index);
+    }
+
+    /**
      * Marks the column as selected
      */
     public select(): void {

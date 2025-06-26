@@ -14,7 +14,7 @@ export class DataManager {
     /** 
      * The maximum number of rows
      */
-    private maxRows: number = 100000;
+    private maxRows: number = 1000000;
 
     /**
      * The maximum number of columns
@@ -118,7 +118,7 @@ export class DataManager {
         this.data.clear();
         
         // Get the actual number of rows from the data, with a minimum of initialRows
-        this.maxRows = Math.max(records.length + 1, this.initialRows); // +1 for header row
+        // this.maxRows = Math.max(records.length + 1, this.initialRows); // +1 for header row
         
         // Determine the number of columns based on the record structure
         // For our standard IDataRecord, we have 5 columns: ID, First Name, Last Name, Age, Salary
@@ -254,5 +254,163 @@ export class DataManager {
         }
         
         return false;
+    }
+
+    /**
+     * Inserts a row at the specified position
+     * @param rowIndex - The position where the row will be inserted
+     * @returns boolean - Whether the row was successfully inserted
+     */
+    public insertRow(rowIndex: number): boolean {
+        if (rowIndex < 0 || rowIndex > this.currentRows) {
+            return false;
+        }
+
+        // If we're already at the maximum row capacity, we can't add more
+        if (this.currentRows >= this.maxRows) {
+            console.error('Cannot insert row: Maximum row limit reached');
+            return false;
+        }
+
+        // Shift all data from the insertion point and below
+        const oldData = new Map<string, Cell>(this.data);
+        this.data.clear();
+
+        // Copy data, shifting rows as needed
+        for (const [key, cell] of oldData.entries()) {
+            const [row, col] = key.split('-').map(Number);
+            
+            if (row >= rowIndex) {
+                // This is a row that needs to be shifted down
+                this.data.set(this.getCellKey(row + 1, col), cell);
+            } else {
+                // This row stays in place
+                this.data.set(key, cell);
+            }
+        }
+
+        // Increment current row count
+        this.currentRows++;
+        return true;
+    }
+
+    /**
+     * Removes a row at the specified position
+     * @param rowIndex - The position of the row to remove
+     * @returns boolean - Whether the row was successfully removed
+     */
+    public removeRow(rowIndex: number): boolean {
+        if (rowIndex < 0 || rowIndex >= this.currentRows) {
+            return false;
+        }
+
+        // Don't allow removing all rows
+        if (this.currentRows <= 1) {
+            console.error('Cannot remove row: At least one row must remain');
+            return false;
+        }
+
+        // Shift all data from the removal point and below
+        const oldData = new Map<string, Cell>(this.data);
+        this.data.clear();
+
+        // Copy data, shifting rows as needed
+        for (const [key, cell] of oldData.entries()) {
+            const [row, col] = key.split('-').map(Number);
+            
+            if (row === rowIndex) {
+                // Skip this row as it's being removed
+                continue;
+            } else if (row > rowIndex) {
+                // This is a row that needs to be shifted up
+                this.data.set(this.getCellKey(row - 1, col), cell);
+            } else {
+                // This row stays in place
+                this.data.set(key, cell);
+            }
+        }
+
+        // Decrement current row count
+        this.currentRows--;
+        return true;
+    }
+
+    /**
+     * Inserts a column at the specified position
+     * @param colIndex - The position where the column will be inserted
+     * @returns boolean - Whether the column was successfully inserted
+     */
+    public insertColumn(colIndex: number): boolean {
+        if (colIndex < 0 || colIndex > this.currentCols) {
+            return false;
+        }
+
+        // If we're already at the maximum column capacity, we can't add more
+        if (this.currentCols >= this.maxCols) {
+            console.error('Cannot insert column: Maximum column limit reached');
+            return false;
+        }
+
+        // Shift all data from the insertion point and to the right
+        const oldData = new Map<string, Cell>(this.data);
+        this.data.clear();
+
+        // Copy data, shifting columns as needed
+        for (const [key, cell] of oldData.entries()) {
+            const [row, col] = key.split('-').map(Number);
+            
+            if (col >= colIndex) {
+                // This is a column that needs to be shifted right
+                this.data.set(this.getCellKey(row, col + 1), cell);
+            } else {
+                // This column stays in place
+                this.data.set(key, cell);
+            }
+        }
+
+        // Increment current column count
+        this.currentCols++;
+        return true;
+    }
+
+    /**
+     * Removes a column at the specified position
+     * @param colIndex - The position of the column to remove
+     * @returns boolean - Whether the column was successfully removed
+     */
+    public removeColumn(colIndex: number): boolean {
+        if (colIndex < 0 || colIndex >= this.currentCols) {
+            return false;
+        }
+
+        // Don't allow removing all columns
+        if (this.currentCols <= 1) {
+            console.error('Cannot remove column: At least one column must remain');
+            return false;
+        }
+
+        // Shift all data from the removal point and to the right
+        const oldData = new Map<string, Cell>(this.data);
+        this.data.clear();
+
+        // Copy data, shifting columns as needed
+        for (const [key, cell] of oldData.entries()) {
+            const [row, col] = key.split('-').map(Number);
+            
+            if (col === colIndex) {
+                // Skip this column as it's being removed
+                continue;
+            } else if (col > colIndex) {
+                // This is a column that needs to be shifted left
+                this.data.set(this.getCellKey(row, col - 1), cell);
+            } else {
+                // This column stays in place
+                this.data.set(key, cell);
+            }
+        }
+
+        // Decrement current column count
+        this.currentCols--;
+        return true;
     }
 }

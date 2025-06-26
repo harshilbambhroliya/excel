@@ -102,6 +102,12 @@ class ExcelApp {
         const zoomInBtn = document.getElementById('zoomIn');
         const zoomOutBtn = document.getElementById('zoomOut');
         const zoomResetBtn = document.getElementById('zoomReset');
+        
+        // Insert row and column buttons
+        const insertRowAboveBtn = document.getElementById('insertRowAbove');
+        const insertRowBelowBtn = document.getElementById('insertRowBelow');
+        const insertColumnLeftBtn = document.getElementById('insertColumnLeft');
+        const insertColumnRightBtn = document.getElementById('insertColumnRight');
 
         if (loadDataBtn) {
             loadDataBtn.addEventListener('click', () => {
@@ -158,6 +164,51 @@ class ExcelApp {
             zoomResetBtn.addEventListener('click', () => {
                 this.renderer!.setZoom(1.0);
                 this.updateZoomLevelDisplay();
+            });
+        }
+        
+        // Insert row and column handlers
+        if (insertRowAboveBtn && this.eventHandler) {
+            insertRowAboveBtn.addEventListener('click', () => {
+                const selection = this.grid!.getSelection();
+                if (selection.startRow >= 0) {
+                    this.eventHandler!.insertRowAbove(selection.startRow);
+                } else {
+                    alert('Please select a cell first to insert a row above it.');
+                }
+            });
+        }
+        
+        if (insertRowBelowBtn && this.eventHandler) {
+            insertRowBelowBtn.addEventListener('click', () => {
+                const selection = this.grid!.getSelection();
+                if (selection.startRow >= 0) {
+                    this.eventHandler!.insertRowBelow(selection.startRow);
+                } else {
+                    alert('Please select a cell first to insert a row below it.');
+                }
+            });
+        }
+        
+        if (insertColumnLeftBtn && this.eventHandler) {
+            insertColumnLeftBtn.addEventListener('click', () => {
+                const selection = this.grid!.getSelection();
+                if (selection.startCol >= 0) {
+                    this.eventHandler!.insertColumnLeft(selection.startCol);
+                } else {
+                    alert('Please select a cell first to insert a column to the left of it.');
+                }
+            });
+        }
+        
+        if (insertColumnRightBtn && this.eventHandler) {
+            insertColumnRightBtn.addEventListener('click', () => {
+                const selection = this.grid!.getSelection();
+                if (selection.startCol >= 0) {
+                    this.eventHandler!.insertColumnRight(selection.startCol);
+                } else {
+                    alert('Please select a cell first to insert a column to the right of it.');
+                }
             });
         }
     }

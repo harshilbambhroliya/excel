@@ -31,6 +31,14 @@ export class Row {
     }
 
     /**
+     * Sets the index of the row
+     * @param {number} index The new index
+     */
+    public setIndex(index: number): void {
+        this.index = index;
+    }
+
+    /**
      * Marks the row as selected
      */
     public select(): void {

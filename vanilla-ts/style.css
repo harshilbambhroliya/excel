@@ -240,3 +240,79 @@ body {
 .zoom-controls button:hover {
   background: #185a36;
 }
+
+/* Add styles for the button group */
+.button-group {
+    display: flex;
+    margin: 0 8px;
+    /* border-radius: 4px; */
+    gap: 5px;
+    overflow: hidden;
+    /* box-shadow: 0 1px 3px rgba(0,0,0,0.1); */
+}
+
+.button-group button {
+    background-color: #185a36;
+    /* border: 1px solid #ced4da; */
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    margin: 0;
+    /* border-right: none; */
+    /* transition: background-color 0.2s ease; */
+}
+
+.button-group button:hover {
+    background-color: #1c6239;
+}
+
+.button-group button:active {
+    background-color: #dae0e5;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.button-group button i {
+    margin-right: 4px;
+    width: 14px;
+    text-align: center;
+    color: #ffffff;
+}
+
+/* Styles for context menu - keep this for right-click functionality */
+.excel-context-menu {
+    background-color: #fff;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 8px 0;
+}
+
+.excel-context-menu-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.excel-context-menu-item:hover {
+    background-color: #f8f9fa;
+}
+
+/* Add styles for selected row and column headers */
+.excel-container .row-header.selected {
+    background-color: #1c6239 !important;
+    color: white !important;
+    font-weight: bold;
+}
+
+.excel-container .column-header.selected {
+    background-color: #1c6239 !important;
+    color: white !important;
+    font-weight: bold;
+}
+
+/* Make the selection area more visible */
+.excel-container .selected-cell {
+    background-color: rgba(28, 98, 57, 0.2) !important;
+    border: 2px solid #1c6239 !important;
+}

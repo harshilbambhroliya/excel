@@ -1076,19 +1076,24 @@ export class Renderer {
         const pixelAlignedWidth = Math.round(width);
         const pixelAlignedHeight = Math.round(height);
         
-        // Draw selection highlight (Excel uses a very light blue)
-        this.ctx.fillStyle = 'rgba(232, 242, 236, 0.2)';
+        // Draw selection highlight with a more noticeable color
+        this.ctx.fillStyle = 'rgba(28, 98, 57, 0.15)'; // Light green with transparency
         this.ctx.fillRect(pixelAlignedX - 0.5, pixelAlignedY - 0.5, pixelAlignedWidth, pixelAlignedHeight);
         
-        // Draw selection border (Excel uses a specific green for the border)
-        this.ctx.strokeStyle = '#217346';
-        this.ctx.lineWidth = 2 / this.devicePixelRatio;
+        // Draw selection border with a thicker and more visible style
+        this.ctx.strokeStyle = '#1c6239'; // Darker green for the border
+        this.ctx.lineWidth = 2.5 / this.devicePixelRatio;
         this.ctx.strokeRect(pixelAlignedX - 0.5, pixelAlignedY - 0.5, pixelAlignedWidth, pixelAlignedHeight);
+        
+        // Add corner handles for better selection visibility
+        const handleSize = 6;
+        this.ctx.fillStyle = '#1c6239';
+        
+        // Bottom-right corner
+        this.ctx.fillRect(pixelAlignedX - 0.5 + pixelAlignedWidth - handleSize/2, pixelAlignedY - 0.5 + pixelAlignedHeight - handleSize/2, handleSize, handleSize);
         
         // Restore the context
         this.ctx.restore();
-
-        
     }
 
     public renderDottedLineAcrossSelection(selection: { getRange: () => { row: number, col: number }[] }): void {
