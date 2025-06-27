@@ -524,7 +524,8 @@ export class EventHandler {
 
                 // Initially select just this row
                 this.grid.selectRow(row);
-                this.highlightHeadersForCell(row, 0);
+                // this.highlightHeadersForCell(row, 0);
+                this.highlightHeadersForSelection();
                 this.renderer.render();
                 this.updateSelectionStats();
                 return;
@@ -579,7 +580,7 @@ export class EventHandler {
 
                 // Initially select just this column
                 this.grid.selectColumn(col);
-                this.highlightHeadersForCell(0, col);
+                this.highlightHeadersForSelection();
                 this.renderer.render();
                 this.updateSelectionStats();
                 return;
