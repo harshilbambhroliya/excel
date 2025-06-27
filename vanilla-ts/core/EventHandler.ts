@@ -686,6 +686,8 @@ export class EventHandler {
                 ) {
                     // Select the range of rows
                     this.grid.selectRowRange(this.headerDragStart, currentRow);
+                    // Highlight headers for the current selection range
+                    this.highlightHeadersForSelection();
                     this.renderer.render();
                     this.updateSelectionStats();
                 }
@@ -722,6 +724,7 @@ export class EventHandler {
                         this.headerDragStart,
                         currentCol
                     );
+                    this.highlightHeadersForSelection();
                     this.renderer.render();
                     this.updateSelectionStats();
                 }
