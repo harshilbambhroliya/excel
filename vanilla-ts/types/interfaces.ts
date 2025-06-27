@@ -1,7 +1,7 @@
 // src/types/interfaces.ts
 export interface ICell {
     value: any;
-    type: 'string' | 'number' | 'boolean' | 'date';
+    type: "string" | "number" | "boolean" | "date";
     formula?: string;
     style?: ICellStyle;
 }
@@ -11,7 +11,7 @@ export interface ICellStyle {
     textColor?: string;
     fontSize?: number;
     fontWeight?: string;
-    textAlign?: 'left' | 'center' | 'right';
+    textAlign?: "left" | "center" | "right";
 }
 
 export interface IPosition {
@@ -51,4 +51,16 @@ export interface IGridDimensions {
     columnWidth: number;
     headerHeight: number;
     headerWidth: number;
+}
+
+export interface ICellStyle {
+    fontWeight?: string;
+    backgroundColor?: string;
+    textColor?: string;
+    fontSize?: number;
+    textAlign?: "left" | "center" | "right";
+    border?: string;
+    fontStyle?: "normal" | "italic";
+    textDecoration?: "none" | "underline" | "line-through";
+    textDecorationLine?: "none" | "underline" | "line-through";
 }

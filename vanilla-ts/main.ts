@@ -119,7 +119,10 @@ class ExcelApp {
         const insertColumnLeftBtn = document.getElementById("insertColumnLeft");
         const insertColumnRightBtn =
             document.getElementById("insertColumnRight");
-
+        const boldBtn = document.getElementById("bold");
+        const italicBtn = document.getElementById("italic");
+        const underlineBtn = document.getElementById("underline");
+        const strikethroughBtn = document.getElementById("strikethrough");
         if (loadDataBtn) {
             loadDataBtn.addEventListener("click", () => {
                 this.loadSampleData();
@@ -228,6 +231,30 @@ class ExcelApp {
                         "Please select a cell first to insert a column to the right of it."
                     );
                 }
+            });
+        }
+
+        if (boldBtn && this.eventHandler) {
+            boldBtn.addEventListener("click", () => {
+                this.eventHandler!.toggleStyle("bold");
+            });
+        }
+
+        if (italicBtn && this.eventHandler) {
+            italicBtn.addEventListener("click", () => {
+                this.eventHandler!.toggleStyle("italic");
+            });
+        }
+
+        if (underlineBtn && this.eventHandler) {
+            underlineBtn.addEventListener("click", () => {
+                this.eventHandler!.toggleStyle("underline");
+            });
+        }
+
+        if (strikethroughBtn && this.eventHandler) {
+            strikethroughBtn.addEventListener("click", () => {
+                this.eventHandler!.toggleStyle("strikethrough");
             });
         }
     }

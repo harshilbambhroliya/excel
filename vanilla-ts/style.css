@@ -418,6 +418,18 @@ body {
     text-align: center;
 }
 
+.format-group button {
+    min-width: 32px;
+    padding: 6.5px 10px;
+}
+
+.format-group button i {
+    margin-right: 0;
+    width: 14px;
+    font-size: 12px;
+    text-align: center;
+}
+
 /* Styles for context menu - keep this for right-click functionality */
 .excel-context-menu {
     background-color: #fff;

@@ -1,5 +1,5 @@
 // src/models/Cell.ts
-import { ICell, ICellStyle } from '../types/interfaces.js';
+import { ICell, ICellStyle } from "../types/interfaces.js";
 
 /**
  * Represents a cell in the spreadsheet grid
@@ -7,13 +7,13 @@ import { ICell, ICellStyle } from '../types/interfaces.js';
 export class Cell implements ICell {
     /** @type {any} The value stored in the cell */
     public value: any;
-    
+
     /** @type {'string' | 'number' | 'boolean' | 'date'} The data type of the cell value */
-    public type: 'string' | 'number' | 'boolean' | 'date';
-    
+    public type: "string" | "number" | "boolean" | "date";
+
     /** @type {string} The formula used to calculate the cell value, if any */
     public formula?: string;
-    
+
     /** @type {ICellStyle} The styling information for the cell */
     public style: ICellStyle;
 
@@ -22,17 +22,20 @@ export class Cell implements ICell {
      * @param {any} value The initial value of the cell
      * @param {'string' | 'number' | 'boolean' | 'date'} type The initial data type of the cell
      */
-    constructor(value: any = '', type: 'string' | 'number' | 'boolean' | 'date' = 'string') {
+    constructor(
+        value: any = "",
+        type: "string" | "number" | "boolean" | "date" = "string"
+    ) {
         this.value = value;
         this.type = type;
         this.style = {
-            backgroundColor: '#ffffff',
-            textColor: '#000000',
+            backgroundColor: "#ffffff",
+            textColor: "#000000",
             fontSize: 14,
-            fontWeight: 'normal',
-            textAlign: 'left'
+            fontWeight: "normal",
+            textAlign: "left",
         };
-        
+
         this.inferType();
     }
 
@@ -40,14 +43,14 @@ export class Cell implements ICell {
      * Infers the data type of the cell value
      */
     private inferType(): void {
-        if (typeof this.value === 'number') {
-            this.type = 'number';
-        } else if (typeof this.value === 'boolean') {
-            this.type = 'boolean';
+        if (typeof this.value === "number") {
+            this.type = "number";
+        } else if (typeof this.value === "boolean") {
+            this.type = "boolean";
         } else if (this.value instanceof Date) {
-            this.type = 'date';
+            this.type = "date";
         } else {
-            this.type = 'string';
+            this.type = "string";
         }
     }
 
@@ -66,13 +69,13 @@ export class Cell implements ICell {
      */
     public getDisplayValue(): string {
         if (this.value === null || this.value === undefined) {
-            return '';
+            return "";
         }
-        
-        if (this.type === 'number') {
+
+        if (this.type === "number") {
             return this.value.toLocaleString();
         }
-        
+
         return String(this.value);
     }
 
@@ -81,11 +84,20 @@ export class Cell implements ICell {
      * @returns {number | null} The numeric value or null if not a number
      */
     public getNumericValue(): number | null {
-        if (this.type === 'number') {
+        if (this.type === "number") {
             return this.value;
         }
-        
+
         const parsed = parseFloat(String(this.value));
         return isNaN(parsed) ? null : parsed;
+    }
+
+    public getStyle(): ICellStyle {
+        return this.style;
+    }
+
+    public setStyle(style: ICellStyle): void {
+        this.style = { ...this.style, ...style };
+        console.log(`Cell style updated: ${JSON.stringify(this.style)}`);
     }
 }

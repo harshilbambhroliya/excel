@@ -889,7 +889,6 @@ export class EventHandler {
         const selection = this.grid.getSelection();
         if (!selection.isActive) return;
 
-        const dimensions = this.grid.getDimensions();
         let newRow = selection.startRow;
         let newCol = selection.startCol;
 
@@ -907,8 +906,6 @@ export class EventHandler {
 
                 // Clear the existing value since the user wants to start typing from scratch
                 if (this.cellEditor) {
-                    this.cellEditor.value = event.key;
-
                     // Move cursor to the end of the input
                     const valueLength = this.cellEditor.value.length;
                     this.cellEditor.setSelectionRange(valueLength, valueLength);
@@ -2001,6 +1998,62 @@ export class EventHandler {
             if (colObj) {
                 colObj.select();
             }
+        }
+    }
+
+    public toggleStyle(
+        style: "bold" | "italic" | "underline" | "strikethrough"
+    ): void {
+        const selection = this.grid.getSelection();
+        if (!selection.isActive) return;
+
+        const positions = selection.getRange();
+        const compositeCommand = new CompositeCommand();
+
+        positions.forEach((pos) => {
+            const cell = this.grid.getCell(pos.row, pos.col);
+            const currentStyle = cell.getStyle();
+            const newStyle = {
+                ...currentStyle,
+                fontWeight:
+                    style === "bold"
+                        ? currentStyle.fontWeight === "bold"
+                            ? "normal"
+                            : "bold"
+                        : currentStyle.fontWeight,
+                fontStyle:
+                    style === "italic"
+                        ? currentStyle.fontStyle === "italic"
+                            ? "normal"
+                            : "italic"
+                        : currentStyle.fontStyle,
+                textDecoration:
+                    style === "strikethrough"
+                        ? currentStyle.textDecoration === "line-through"
+                            ? "none"
+                            : "line-through"
+                        : currentStyle.textDecoration,
+                textDecorationLine:
+                    style === "underline"
+                        ? currentStyle.textDecorationLine === "underline"
+                            ? "none"
+                            : "underline"
+                        : currentStyle.textDecorationLine,
+            };
+            const command = new EditCellCommand(
+                this.grid,
+                pos.row,
+                pos.col,
+                cell.value,
+                newStyle
+            );
+            compositeCommand.addCommand(command);
+        });
+
+        if (compositeCommand.count() > 0) {
+            this.commandManager.executeCommand(compositeCommand);
+            this.renderer.render();
+            this.updateSelectionStats();
         }
     }
 }

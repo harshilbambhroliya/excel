@@ -3,7 +3,7 @@ import { Row } from "../models/Row.js";
 import { Column } from "../models/Column.js";
 import { Selection } from "../models/Selection.js";
 import { DataManager } from "./DataManager.js";
-import { IGridDimensions } from "../types/interfaces.js";
+import { ICellStyle, IGridDimensions } from "../types/interfaces.js";
 
 /**
  * Manages the grid structure and data for the spreadsheet
@@ -591,5 +591,12 @@ export class Grid {
         this.selection.extend(this.dataManager.getCurrentRows() - 1, maxCol);
 
         console.log(`Selected columns from ${minCol} to ${maxCol}`);
+    }
+
+    public setCellStyle(row: number, col: number, style: ICellStyle): void {
+        const cell = this.getCell(row, col);
+        if (cell) {
+            cell.setStyle(style);
+        }
     }
 }
