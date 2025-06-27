@@ -831,6 +831,7 @@ export class Renderer {
                 dimensions.headerHeight + 20
             ) {
                 startRow = Math.max(0, row - 1);
+
                 break;
             }
         }

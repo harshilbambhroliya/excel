@@ -430,6 +430,11 @@ body {
     text-align: center;
 }
 
+.format-group .active {
+    background-color: #155d35;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
 /* Styles for context menu - keep this for right-click functionality */
 .excel-context-menu {
     background-color: #fff;

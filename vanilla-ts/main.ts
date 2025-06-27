@@ -236,24 +236,28 @@ class ExcelApp {
 
         if (boldBtn && this.eventHandler) {
             boldBtn.addEventListener("click", () => {
+                boldBtn.classList.toggle("active");
                 this.eventHandler!.toggleStyle("bold");
             });
         }
 
         if (italicBtn && this.eventHandler) {
             italicBtn.addEventListener("click", () => {
+                italicBtn.classList.toggle("active");
                 this.eventHandler!.toggleStyle("italic");
             });
         }
 
         if (underlineBtn && this.eventHandler) {
             underlineBtn.addEventListener("click", () => {
+                underlineBtn.classList.toggle("active");
                 this.eventHandler!.toggleStyle("underline");
             });
         }
 
         if (strikethroughBtn && this.eventHandler) {
             strikethroughBtn.addEventListener("click", () => {
+                strikethroughBtn.classList.toggle("active");
                 this.eventHandler!.toggleStyle("strikethrough");
             });
         }
