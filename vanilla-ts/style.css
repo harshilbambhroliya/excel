@@ -112,6 +112,7 @@ body {
     font-weight: bold;
     margin-left: 5px;
     color: white;
+    white-space: nowrap;
 }
 .excel-container {
     flex: 1;

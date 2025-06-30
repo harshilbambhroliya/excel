@@ -123,6 +123,9 @@ class ExcelApp {
         const italicBtn = document.getElementById("italic");
         const underlineBtn = document.getElementById("underline");
         const strikethroughBtn = document.getElementById("strikethrough");
+        const removeRowBtn = document.getElementById("removeRow");
+        const removeColumnBtn = document.getElementById("removeColumn");
+
         if (loadDataBtn) {
             loadDataBtn.addEventListener("click", () => {
                 this.loadSampleData();
@@ -230,6 +233,29 @@ class ExcelApp {
                     alert(
                         "Please select a cell first to insert a column to the right of it."
                     );
+                }
+            });
+        }
+
+        // Remove row and column handlers
+        if (removeRowBtn && this.eventHandler) {
+            removeRowBtn.addEventListener("click", () => {
+                const selection = this.grid!.getSelection();
+                if (selection.startRow >= 0) {
+                    this.eventHandler!.removeRow(selection.startRow);
+                } else {
+                    alert("Please select a row to remove.");
+                }
+            });
+        }
+
+        if (removeColumnBtn && this.eventHandler) {
+            removeColumnBtn.addEventListener("click", () => {
+                const selection = this.grid!.getSelection();
+                if (selection.startCol >= 0) {
+                    this.eventHandler!.removeColumn(selection.startCol);
+                } else {
+                    alert("Please select a column to remove.");
                 }
             });
         }

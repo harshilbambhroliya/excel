@@ -534,6 +534,10 @@ export class Grid {
         this.columns.forEach((col) => col.deselect());
     }
 
+    /**
+     * Selects all rows and columns in the grid
+     * This will also select all cells in the grid
+     */
     public selectAll(): void {
         this.rows.forEach((row) => row.select());
         this.columns.forEach((col) => col.select());
@@ -593,6 +597,12 @@ export class Grid {
         console.log(`Selected columns from ${minCol} to ${maxCol}`);
     }
 
+    /**
+     * Sets the style of a cell at the specified row and column
+     * @param {number} row The row index of the cell
+     * @param {number} col The column index of the cell
+     * @param {ICellStyle} style The style to apply to the cell
+     */
     public setCellStyle(row: number, col: number, style: ICellStyle): void {
         const cell = this.getCell(row, col);
         if (cell) {

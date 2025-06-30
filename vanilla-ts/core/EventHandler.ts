@@ -10,6 +10,8 @@ import { InsertColumnCommand } from "../commands/InsertColumnCommand.js";
 import { MathUtils } from "../utils/MathUtils.js";
 import { ScrollbarManager } from "./ScrollbarManager.js";
 import { Selection } from "../models/Selection.js";
+import { RemoveRowCommand } from "../commands/RemoveRowCommand.js";
+import { RemoveColumnCommand } from "../commands/RemoveColumnCommand.js";
 /**
  * EventHandler class
  * @description Handles all the events for the grid
@@ -364,6 +366,48 @@ export class EventHandler {
         this.renderer.refreshScrollbars();
 
         // Select the newly inserted column
+        this.grid.clearAllSelections();
+        this.grid
+            .getSelection()
+            .start(this.grid.getSelection().startRow, position);
+        this.highlightHeadersForCell(
+            this.grid.getSelection().startRow,
+            position
+        );
+
+        this.renderer.render();
+    }
+
+    public removeRow(position: number): void {
+        const command = new RemoveRowCommand(this.grid, position);
+        this.commandManager.executeCommand(command);
+
+        // Update the positions in the renderer and refresh scrollbars
+        this.renderer.recalculatePositions();
+        this.renderer.refreshScrollbars();
+
+        // Select the newly removed row
+        this.grid.clearAllSelections();
+        this.grid
+            .getSelection()
+            .start(position, this.grid.getSelection().startCol);
+        this.highlightHeadersForCell(
+            position,
+            this.grid.getSelection().startCol
+        );
+
+        this.renderer.render();
+    }
+
+    public removeColumn(position: number): void {
+        const command = new RemoveColumnCommand(this.grid, position);
+        this.commandManager.executeCommand(command);
+
+        // Update the positions in the renderer and refresh scrollbars
+        this.renderer.recalculatePositions();
+        this.renderer.refreshScrollbars();
+
+        // Select the newly removed column
         this.grid.clearAllSelections();
         this.grid
             .getSelection()
