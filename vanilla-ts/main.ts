@@ -312,10 +312,6 @@ class ExcelApp {
     }
 
     /**
-     * Resizes the canvas to match its container dimensions
-     */
-
-    /**
      * Sets up a resize observer to handle window resize events
      */
     private setupResizeObserver(): void {
