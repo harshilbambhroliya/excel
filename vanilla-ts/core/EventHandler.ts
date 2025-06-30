@@ -766,9 +766,8 @@ export class EventHandler {
 
     /**
      * Handles the mouse up event
-     * @param event - The mouse event
      */
-    private handleMouseUp(event: MouseEvent): void {
+    private handleMouseUp(): void {
         this.isMouseDown = false;
         this.isDragging = false;
         this.isHeaderDragging = false;
@@ -1419,15 +1418,15 @@ export class EventHandler {
             this.cellEditor.style.width = cellRect.width + "px";
             this.cellEditor.style.height = cellRect.height + "px";
             this.cellEditor.style.display = "block";
-
             this.cellEditor.style.fontSize =
                 this.BASE_EDITOR_FONT_SIZE * zoomFactor + "px";
-            // Set the initial value
-            this.cellEditor.value = cell.getDisplayValue();
+            // Set the initial value - use edit value to show formula if present
+            this.cellEditor.value = cell.getEditValue();
 
-            // Focus and select all text
+            // Focus and go to the end of the input
             this.cellEditor.focus();
-            this.cellEditor.select();
+            const valueLength = this.cellEditor.value.length;
+            this.cellEditor.setSelectionRange(valueLength, valueLength);
 
             // On mobile, try to open the keyboard by simulating a click
             if ("ontouchstart" in window) {
@@ -1445,21 +1444,42 @@ export class EventHandler {
         if (!this.editingCell || !this.cellEditor) return;
 
         const newValue = this.cellEditor.value;
-        this.handleCalculation(newValue);
         const oldValue = this.grid.getCellValue(
             this.editingCell.row,
             this.editingCell.col
         );
-
         if (newValue !== String(oldValue)) {
+            let finalValue: any = newValue;
+            let formula: string | undefined = undefined; // Check if it's a formula
+            if (newValue.startsWith("=")) {
+                const calculatedResult = this.handleCalculation(newValue);
+                if (calculatedResult !== null) {
+                    formula = newValue;
+                    finalValue = calculatedResult; // Store the calculated number directly
+                } else {
+                    // If formula parsing failed, just store as string
+                    finalValue = this.parseValue(newValue);
+                }
+            } else {
+                finalValue = this.parseValue(newValue);
+            }
+
+            // Create and execute the command
             const command = new EditCellCommand(
                 this.grid,
                 this.editingCell.row,
                 this.editingCell.col,
-                this.parseValue(newValue)
+                finalValue,
+                undefined, // style (keep existing)
+                formula // store the formula
             );
             this.commandManager.executeCommand(command);
             this.renderer.render();
+        } else {
+            // Even if value didn't change, check if it was a formula to show selection
+            if (newValue.startsWith("=")) {
+                this.handleCalculation(newValue);
+            }
         }
 
         this.cellEditor.style.display = "none";
@@ -1736,16 +1756,31 @@ export class EventHandler {
     /**
      * Handles the calculation
      * @param value - The value
+     * @param editingCellRow - The row of the cell containing the formula (optional)
+     * @param editingCellCol - The column of the cell containing the formula (optional)
+     * @returns The calculated result or null if not a formula
      */
-    public handleCalculation(value: string): void {
-        // it is in the format of "=SUM(A1:A10)"
-        const match = value.match(/([A-Z]+)(\d+):([A-Z]+)(\d+)/);
-        if (!match) return;
+    public handleCalculation(value: string): number | null {
+        // Check if it's a formula starting with =
+        if (!value.startsWith("=")) {
+            return null;
+        }
 
-        const startRow = match[2];
-        const startCol = match[1];
-        const endRow = match[4];
-        const endCol = match[3];
+        // Extract the function and range, e.g., "=SUM(A1:A10)"
+        const formulaMatch = value.match(/^=(\w+)\(([A-Z]+\d+:[A-Z]+\d+)\)$/);
+        if (!formulaMatch) return null;
+
+        const functionName = formulaMatch[1].toUpperCase();
+        const range = formulaMatch[2];
+
+        // Parse the range
+        const rangeMatch = range.match(/([A-Z]+)(\d+):([A-Z]+)(\d+)/);
+        if (!rangeMatch) return null;
+
+        const startRow = rangeMatch[2];
+        const startCol = rangeMatch[1];
+        const endRow = rangeMatch[4];
+        const endCol = rangeMatch[3];
 
         const startRowIndex = parseInt(startRow) - 1;
         const startColIndex = startCol.charCodeAt(0) - 65;
@@ -1758,61 +1793,39 @@ export class EventHandler {
             endRowIndex,
             endColIndex
         );
-        // select the cells in the range
+
+        // Calculate the result based on the function
+        let result: number | null = null;
+
+        switch (functionName) {
+            case "SUM":
+                result = this.calculateSum(cellsInRange);
+                break;
+            case "AVG":
+            case "AVERAGE":
+                result = this.calculateAverage(cellsInRange);
+                break;
+            case "MIN":
+                result = this.calculateMin(cellsInRange);
+                break;
+            case "MAX":
+                result = this.calculateMax(cellsInRange);
+                break;
+            case "COUNT":
+                result = this.calculateCount(cellsInRange);
+                break;
+            default:
+                console.warn(`Unsupported function: ${functionName}`);
+                return null;
+        } // Select the cells in the range for visual feedback
+
         this.grid.getSelection().start(startRowIndex, startColIndex);
         this.grid.getSelection().extend(endRowIndex, endColIndex);
-        this.renderer.render();
         this.updateSelectionStats();
+        this.highlightHeadersForSelection();
+        this.renderer.render();
 
-        this.updateState(cellsInRange);
-    }
-
-    /**
-     * Updates the state
-     * @param sum - The sum
-     */
-    private updateState(cellsInRange: any[]): void {
-        const statsElement = document.getElementById("selectionStats");
-        if (!statsElement) return;
-
-        const count = cellsInRange.length;
-        let sum = 0;
-        for (const cell of cellsInRange) {
-            sum += parseInt(cell.value);
-        }
-        const avg = count > 0 ? sum / count : 0;
-
-        // Find min and max
-        let min = Number.MAX_VALUE;
-        let max = Number.MIN_VALUE;
-
-        for (const cell of cellsInRange) {
-            const value = cell.getNumericValue();
-            if (value !== null) {
-                min = Math.min(min, value);
-                max = Math.max(max, value);
-            }
-        }
-
-        // If no valid numbers were found
-        if (min === Number.MAX_VALUE) min = 0;
-        if (max === Number.MIN_VALUE) max = 0;
-
-        // Update the stats display with all information
-        if (count > 0) {
-            statsElement.innerHTML = `
-                <div class="stat-item" id="count">Count: <span class="stat-value">${count}</span></div>
-                <div class="stat-item" id="sum">Sum: <span class="stat-value">${sum.toLocaleString()}</span></div>
-                <div class="stat-item" id="avg">Avg: <span class="stat-value">${avg.toFixed(
-                    2
-                )}</span></div>
-                <div class="stat-item" id="min">Min: <span class="stat-value">${min}</span></div>
-                <div class="stat-item" id="max">Max: <span class="stat-value">${max}</span></div>
-                <div class="stat-item" id="selected">Selected: <span class="stat-value">${count} cells</span></div>
-            `;
-        } else {
-            statsElement.innerHTML = `<div class="stat-item" id="selected">Selected: <span class="stat-value">${count} cells</span></div>`;
-        }
+        return result;
     }
 
     /**
@@ -1893,7 +1906,7 @@ export class EventHandler {
         } as unknown as MouseEvent;
 
         // Handle as a mouse up event
-        this.handleMouseUp(mouseEvent);
+        this.handleMouseUp();
 
         // Check for double-tap (similar to double-click)
         if (this.lastTouchPosition && this.lastTouchTime) {
@@ -2059,5 +2072,78 @@ export class EventHandler {
             this.renderer.render();
             this.updateSelectionStats();
         }
+    }
+
+    /**
+     * Calculates the sum of cells
+     * @param cells - Array of cells
+     * @returns The sum
+     */
+    private calculateSum(cells: any[]): number {
+        let sum = 0;
+        for (const cell of cells) {
+            const numericValue = cell.getNumericValue();
+            if (numericValue !== null) {
+                sum += numericValue;
+            }
+        }
+        return sum;
+    }
+
+    /**
+     * Calculates the average of cells
+     * @param cells - Array of cells
+     * @returns The average
+     */
+    private calculateAverage(cells: any[]): number {
+        const numericValues = cells
+            .map((cell) => cell.getNumericValue())
+            .filter((value) => value !== null);
+
+        if (numericValues.length === 0) return 0;
+
+        const sum = numericValues.reduce((acc, val) => acc + val, 0);
+        return sum / numericValues.length;
+    }
+
+    /**
+     * Calculates the minimum value of cells
+     * @param cells - Array of cells
+     * @returns The minimum value
+     */
+    private calculateMin(cells: any[]): number {
+        const numericValues = cells
+            .map((cell) => cell.getNumericValue())
+            .filter((value) => value !== null);
+
+        if (numericValues.length === 0) return 0;
+
+        return Math.min(...numericValues);
+    }
+
+    /**
+     * Calculates the maximum value of cells
+     * @param cells - Array of cells
+     * @returns The maximum value
+     */
+    private calculateMax(cells: any[]): number {
+        const numericValues = cells
+            .map((cell) => cell.getNumericValue())
+            .filter((value) => value !== null);
+
+        if (numericValues.length === 0) return 0;
+
+        return Math.max(...numericValues);
+    }
+
+    /**
+     * Counts the number of cells with numeric values
+     * @param cells - Array of cells
+     * @returns The count
+     */
+    private calculateCount(cells: any[]): number {
+        return cells
+            .map((cell) => cell.getNumericValue())
+            .filter((value) => value !== null).length;
     }
 }

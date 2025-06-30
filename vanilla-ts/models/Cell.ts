@@ -53,14 +53,23 @@ export class Cell implements ICell {
             this.type = "string";
         }
     }
-
     /**
      * Sets a new value for the cell
      * @param {any} value The new value to set
+     * @param {string} formula Optional formula that generated this value
      */
-    public setValue(value: any): void {
+    public setValue(value: any, formula?: string): void {
         this.value = value;
+        this.formula = formula;
         this.inferType();
+    }
+
+    /**
+     * Sets the formula for this cell
+     * @param {string} formula The formula string
+     */
+    public setFormula(formula: string): void {
+        this.formula = formula;
     }
 
     /**
@@ -77,6 +86,18 @@ export class Cell implements ICell {
         }
 
         return String(this.value);
+    }
+
+    /**
+     * Gets the edit value (what should be shown in the editor)
+     * Returns the formula if it exists, otherwise the display value
+     * @returns {string} The value to show in the editor
+     */
+    public getEditValue(): string {
+        if (this.formula) {
+            return this.formula;
+        }
+        return this.getDisplayValue();
     }
 
     /**

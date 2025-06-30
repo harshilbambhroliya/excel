@@ -240,8 +240,8 @@ export class Renderer {
      * Checks if the user is scrolling near the end of the grid and adds more rows/columns if needed
      */
     private checkAndExpandGrid(): void {
-        const { startRow, endRow } = this.getVisibleRowRange();
-        const { startCol, endCol } = this.getVisibleColumnRange();
+        const { endRow } = this.getVisibleRowRange();
+        const { endCol } = this.getVisibleColumnRange();
 
         // Get total rows and columns
         const currentRows = this.grid.getCurrentRows();

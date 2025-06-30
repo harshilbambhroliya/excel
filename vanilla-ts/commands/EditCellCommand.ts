@@ -21,9 +21,14 @@ export class EditCellCommand extends Command {
 
     /** @type {any} Original value of the cell before editing */
     private oldValue: any;
-
     /** @type {string} Optional style to apply to the cell */
     private style?: ICellStyle;
+
+    /** @type {string} Optional formula for this cell */
+    private formula?: string;
+
+    /** @type {string} Original formula of the cell before editing */
+    private oldFormula?: string;
 
     /**
      * Initializes a new EditCellCommand
@@ -31,13 +36,16 @@ export class EditCellCommand extends Command {
      * @param {number} row The row index of the cell
      * @param {number} col The column index of the cell
      * @param {any} newValue The new value to set in the cell
+     * @param {ICellStyle} style Optional style to apply to the cell
+     * @param {string} formula Optional formula for this cell
      */
     constructor(
         grid: Grid,
         row: number,
         col: number,
         newValue: any,
-        style?: ICellStyle
+        style?: ICellStyle,
+        formula?: string
     ) {
         super();
         this.grid = grid;
@@ -46,13 +54,18 @@ export class EditCellCommand extends Command {
         this.newValue = newValue;
         this.oldValue = grid.getCellValue(row, col);
         this.style = style;
-    }
+        this.formula = formula;
 
+        // Store the old formula if it exists
+        const cell = grid.getCell(row, col);
+        this.oldFormula = cell.formula;
+    }
     /**
      * Executes the command by setting the new value in the cell
      */
     public execute(): void {
-        this.grid.setCellValue(this.row, this.col, this.newValue);
+        const cell = this.grid.getCell(this.row, this.col);
+        cell.setValue(this.newValue, this.formula);
         if (this.style) {
             this.grid.setCellStyle(this.row, this.col, this.style);
         }
@@ -62,7 +75,8 @@ export class EditCellCommand extends Command {
      * Undoes the command by restoring the original value of the cell
      */
     public undo(): void {
-        this.grid.setCellValue(this.row, this.col, this.oldValue);
+        const cell = this.grid.getCell(this.row, this.col);
+        cell.setValue(this.oldValue, this.oldFormula);
         if (this.style) {
             this.grid.setCellStyle(this.row, this.col, this.style);
         }
