@@ -87,27 +87,31 @@ body {
 .stat-item {
     display: flex;
     padding: 5px 10px;
-    border-radius: 3px;
-    background-color: rgba(255, 255, 255, 0.9);
-    color: #217346;
+    border-radius: 4px;
+    /* background-color: rgba(255, 255, 255, 0.9); */
+    background-color: #1a7a48;
+    color: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
     cursor: pointer;
     border: none;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-    font-size: 12px;
+    font-size: 14px;
     transition: all 0.15s ease;
     align-items: center;
+    padding: 10px 12px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
 }
 
 .stat-item:hover {
-    background-color: #ffffff;
+    background-color: #19703f;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
     transform: translateY(-1px);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
 }
 
 .stat-value {
     font-weight: bold;
     margin-left: 5px;
-    color: #1a5336;
+    color: white;
 }
 .excel-container {
     flex: 1;
@@ -438,14 +442,14 @@ body {
 /* Styles for context menu - keep this for right-click functionality */
 .excel-context-menu {
     background-color: #fff;
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    box-shadow: 2px 8px 16px rgba(0, 0, 0, 0.3);
     border: 1px solid #ced4da;
     border-radius: 4px;
-    padding: 8px 0;
+    /* padding: 8px 0; */
 }
 
 .excel-context-menu-item {
-    padding: 8px 16px;
+    /* padding: 8px 16px; */
     cursor: pointer;
     font-size: 14px;
     white-space: nowrap;
