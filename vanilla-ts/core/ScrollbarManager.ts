@@ -18,10 +18,10 @@ export class ScrollbarManager {
 
     /** @type {HTMLElement} The vertical thumb element */
     private verticalThumb: HTMLElement;
-    
+
     /** @type {Function} The callback function to be called when the scroll position changes */
     private onScrollCallback: (scrollX: number, scrollY: number) => void;
-    
+
     /** @type {number} The maximum scroll position in the X direction */
     private maxScrollX: number = 0;
 
@@ -45,7 +45,7 @@ export class ScrollbarManager {
 
     /** @type {number} The height of the content */
     private contentHeight: number = 0;
-    
+
     /** @type {boolean} Whether the horizontal scrollbar is being dragged */
     private isDraggingHorizontal: boolean = false;
 
@@ -54,30 +54,46 @@ export class ScrollbarManager {
 
     /** @type {number} The starting X position of the horizontal scrollbar */
     private dragStartX: number = 0;
-    
+
     /** @type {number} The starting Y position of the vertical scrollbar */
     private dragStartY: number = 0;
 
     /** @type {number} The starting scroll position in the X direction */
     private dragStartScrollX: number = 0;
-
     /** @type {number} The starting scroll position in the Y direction */
     private dragStartScrollY: number = 0;
+
+    /** @type {number} Animation frame ID for throttling updates */
+    private animationFrameId: number | null = null;
+
+    /** @type {boolean} Whether a scroll update is pending */
+    private isUpdatePending: boolean = false;
 
     /**
      * Initializes a new ScrollbarManager instance
      * @param {HTMLElement} container The container element for the scrollbars
      * @param {Function} onScroll The callback function to be called when the scroll position changes
      */
-    constructor(container: HTMLElement, onScroll: (scrollX: number, scrollY: number) => void) {
+    constructor(
+        container: HTMLElement,
+        onScroll: (scrollX: number, scrollY: number) => void
+    ) {
         this.container = container;
         this.onScrollCallback = onScroll;
-        
-        this.horizontalScrollbar = container.querySelector('.horizontal-scrollbar') as HTMLElement;
-        this.verticalScrollbar = container.querySelector('.vertical-scrollbar') as HTMLElement;
-        this.horizontalThumb = container.querySelector('.horizontal-thumb') as HTMLElement;
-        this.verticalThumb = container.querySelector('.vertical-thumb') as HTMLElement;
-        
+
+        this.horizontalScrollbar = container.querySelector(
+            ".horizontal-scrollbar"
+        ) as HTMLElement;
+        this.verticalScrollbar = container.querySelector(
+            ".vertical-scrollbar"
+        ) as HTMLElement;
+        this.horizontalThumb = container.querySelector(
+            ".horizontal-thumb"
+        ) as HTMLElement;
+        this.verticalThumb = container.querySelector(
+            ".vertical-thumb"
+        ) as HTMLElement;
+
         this.setupEventListeners();
     }
 
@@ -86,22 +102,37 @@ export class ScrollbarManager {
      */
     private setupEventListeners(): void {
         // Horizontal scrollbar events
-        this.horizontalThumb.addEventListener('mousedown', this.handleHorizontalMouseDown.bind(this));
-        this.horizontalScrollbar.addEventListener('click', this.handleHorizontalTrackClick.bind(this));
-        
-        // Vertical scrollbar events
-        this.verticalThumb.addEventListener('mousedown', this.handleVerticalMouseDown.bind(this));
-        this.verticalScrollbar.addEventListener('click', this.handleVerticalTrackClick.bind(this));
-        
-        // Global mouse events for dragging
-        document.addEventListener('mousemove', this.handleMouseMove.bind(this));
-        document.addEventListener('mouseup', this.handleMouseUp.bind(this));
-        
-        // Prevent text selection during drag
-        this.horizontalThumb.addEventListener('selectstart', (e) => e.preventDefault());
-        this.verticalThumb.addEventListener('selectstart', (e) => e.preventDefault());
-    }
+        this.horizontalThumb.addEventListener(
+            "mousedown",
+            this.handleHorizontalMouseDown.bind(this)
+        );
+        this.horizontalScrollbar.addEventListener(
+            "click",
+            this.handleHorizontalTrackClick.bind(this)
+        );
 
+        // Vertical scrollbar events
+        this.verticalThumb.addEventListener(
+            "mousedown",
+            this.handleVerticalMouseDown.bind(this)
+        );
+        this.verticalScrollbar.addEventListener(
+            "click",
+            this.handleVerticalTrackClick.bind(this)
+        );
+
+        // Global mouse events for dragging
+        document.addEventListener("mousemove", this.handleMouseMove.bind(this));
+        document.addEventListener("mouseup", this.handleMouseUp.bind(this));
+
+        // Prevent text selection during drag
+        this.horizontalThumb.addEventListener("selectstart", (e) =>
+            e.preventDefault()
+        );
+        this.verticalThumb.addEventListener("selectstart", (e) =>
+            e.preventDefault()
+        );
+    }
     /**
      * Handles the mouse down event for the horizontal scrollbar
      * @param {MouseEvent} event The mouse down event
@@ -111,7 +142,10 @@ export class ScrollbarManager {
         this.isDraggingHorizontal = true;
         this.dragStartX = event.clientX;
         this.dragStartScrollX = this.currentScrollX;
-        document.body.style.userSelect = 'none';
+        document.body.style.userSelect = "none";
+
+        // Add dragging class for performance optimization
+        this.horizontalThumb.classList.add("dragging");
     }
 
     /**
@@ -123,9 +157,11 @@ export class ScrollbarManager {
         this.isDraggingVertical = true;
         this.dragStartY = event.clientY;
         this.dragStartScrollY = this.currentScrollY;
-        document.body.style.userSelect = 'none';
-    }
+        document.body.style.userSelect = "none";
 
+        // Add dragging class for performance optimization
+        this.verticalThumb.classList.add("dragging");
+    }
     /**
      * Handles the mouse move event for the scrollbars
      * @param {MouseEvent} event The mouse move event
@@ -136,37 +172,129 @@ export class ScrollbarManager {
             const trackWidth = this.horizontalScrollbar.clientWidth;
             const thumbWidth = this.horizontalThumb.clientWidth;
             const scrollableWidth = trackWidth - thumbWidth;
-            
+
             if (scrollableWidth > 0) {
                 const scrollRatio = deltaX / scrollableWidth;
-                const newScrollX = Math.max(0, Math.min(this.maxScrollX, 
-                    this.dragStartScrollX + (scrollRatio * this.maxScrollX)));
-                this.setScrollX(newScrollX);
+                const newScrollX = Math.max(
+                    0,
+                    Math.min(
+                        this.maxScrollX,
+                        this.dragStartScrollX + scrollRatio * this.maxScrollX
+                    )
+                );
+
+                // Update scroll position immediately for responsiveness
+                this.currentScrollX = newScrollX;
+
+                // Update thumb position immediately
+                this.updateHorizontalThumbPosition();
+
+                // Throttle callback execution using requestAnimationFrame
+                this.scheduleScrollUpdate();
             }
         }
-        
+
         if (this.isDraggingVertical) {
             const deltaY = event.clientY - this.dragStartY;
             const trackHeight = this.verticalScrollbar.clientHeight;
             const thumbHeight = this.verticalThumb.clientHeight;
             const scrollableHeight = trackHeight - thumbHeight;
-            
+
             if (scrollableHeight > 0) {
                 const scrollRatio = deltaY / scrollableHeight;
-                const newScrollY = Math.max(0, Math.min(this.maxScrollY, 
-                    this.dragStartScrollY + (scrollRatio * this.maxScrollY)));
-                this.setScrollY(newScrollY);
+                const newScrollY = Math.max(
+                    0,
+                    Math.min(
+                        this.maxScrollY,
+                        this.dragStartScrollY + scrollRatio * this.maxScrollY
+                    )
+                );
+
+                // Update scroll position immediately for responsiveness
+                this.currentScrollY = newScrollY;
+
+                // Update thumb position immediately
+                this.updateVerticalThumbPosition();
+
+                // Throttle callback execution using requestAnimationFrame
+                this.scheduleScrollUpdate();
             }
         }
     }
 
     /**
+     * Schedules a scroll update using requestAnimationFrame for smooth performance
+     */
+    private scheduleScrollUpdate(): void {
+        if (this.isUpdatePending) {
+            return; // Already scheduled
+        }
+
+        this.isUpdatePending = true;
+        this.animationFrameId = requestAnimationFrame(() => {
+            this.onScrollCallback(this.currentScrollX, this.currentScrollY);
+            this.isUpdatePending = false;
+            this.animationFrameId = null;
+        });
+    }
+
+    /**
+     * Updates only the horizontal thumb position without triggering callbacks
+     */
+    private updateHorizontalThumbPosition(): void {
+        if (this.maxScrollX > 0) {
+            const trackWidth = this.horizontalScrollbar.clientWidth;
+            const thumbWidth = this.horizontalThumb.clientWidth;
+            const scrollableWidth = trackWidth - thumbWidth;
+            const thumbPosition =
+                (this.currentScrollX / this.maxScrollX) * scrollableWidth;
+            this.horizontalThumb.style.left = thumbPosition + "px";
+        }
+    }
+
+    /**
+     * Updates only the vertical thumb position without triggering callbacks
+     */
+    private updateVerticalThumbPosition(): void {
+        if (this.maxScrollY > 0) {
+            const trackHeight = this.verticalScrollbar.clientHeight;
+            const thumbHeight = this.verticalThumb.clientHeight;
+            const scrollableHeight = trackHeight - thumbHeight;
+            const thumbPosition =
+                (this.currentScrollY / this.maxScrollY) * scrollableHeight;
+            this.verticalThumb.style.top = thumbPosition + "px";
+        }
+    }
+    /**
      * Handles the mouse up event for the scrollbars
      */
     private handleMouseUp(): void {
+        const wasHorizontalDragging = this.isDraggingHorizontal;
+        const wasVerticalDragging = this.isDraggingVertical;
+
         this.isDraggingHorizontal = false;
         this.isDraggingVertical = false;
-        document.body.style.userSelect = '';
+        document.body.style.userSelect = "";
+
+        // Remove dragging classes
+        if (wasHorizontalDragging) {
+            this.horizontalThumb.classList.remove("dragging");
+        }
+        if (wasVerticalDragging) {
+            this.verticalThumb.classList.remove("dragging");
+        }
+
+        // Cancel any pending animation frame and execute final callback
+        if (this.animationFrameId) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
+
+        // Execute final scroll callback if there was a pending update
+        if (this.isUpdatePending) {
+            this.onScrollCallback(this.currentScrollX, this.currentScrollY);
+            this.isUpdatePending = false;
+        }
     }
 
     /**
@@ -175,14 +303,18 @@ export class ScrollbarManager {
      */
     private handleHorizontalTrackClick(event: MouseEvent): void {
         if (event.target === this.horizontalThumb) return;
-        
+
         const rect = this.horizontalScrollbar.getBoundingClientRect();
         const clickX = event.clientX - rect.left;
         const thumbWidth = this.horizontalThumb.clientWidth;
         const trackWidth = this.horizontalScrollbar.clientWidth;
-        
-        const scrollRatio = (clickX - thumbWidth / 2) / (trackWidth - thumbWidth);
-        const newScrollX = Math.max(0, Math.min(this.maxScrollX, scrollRatio * this.maxScrollX));
+
+        const scrollRatio =
+            (clickX - thumbWidth / 2) / (trackWidth - thumbWidth);
+        const newScrollX = Math.max(
+            0,
+            Math.min(this.maxScrollX, scrollRatio * this.maxScrollX)
+        );
         this.setScrollX(newScrollX);
     }
 
@@ -192,14 +324,18 @@ export class ScrollbarManager {
      */
     private handleVerticalTrackClick(event: MouseEvent): void {
         if (event.target === this.verticalThumb) return;
-        
+
         const rect = this.verticalScrollbar.getBoundingClientRect();
         const clickY = event.clientY - rect.top;
         const thumbHeight = this.verticalThumb.clientHeight;
         const trackHeight = this.verticalScrollbar.clientHeight;
-        
-        const scrollRatio = (clickY - thumbHeight / 2) / (trackHeight - thumbHeight);
-        const newScrollY = Math.max(0, Math.min(this.maxScrollY, scrollRatio * this.maxScrollY));
+
+        const scrollRatio =
+            (clickY - thumbHeight / 2) / (trackHeight - thumbHeight);
+        const newScrollY = Math.max(
+            0,
+            Math.min(this.maxScrollY, scrollRatio * this.maxScrollY)
+        );
         this.setScrollY(newScrollY);
     }
 
@@ -210,62 +346,61 @@ export class ScrollbarManager {
      * @param {number} contentWidth The width of the content
      * @param {number} contentHeight The height of the content
      */
-    public updateScrollbars(viewportWidth: number, viewportHeight: number, contentWidth: number, contentHeight: number): void {
+    public updateScrollbars(
+        viewportWidth: number,
+        viewportHeight: number,
+        contentWidth: number,
+        contentHeight: number
+    ): void {
         this.viewportWidth = viewportWidth;
         this.viewportHeight = viewportHeight;
         this.contentWidth = contentWidth;
         this.contentHeight = contentHeight;
-        
+
         this.maxScrollX = Math.max(0, contentWidth - viewportWidth);
         this.maxScrollY = Math.max(0, contentHeight - viewportHeight);
-        
+
         this.updateHorizontalScrollbar();
         this.updateVerticalScrollbar();
     }
-
     /**
      * Updates the horizontal scrollbar based on the viewport and content dimensions
      */
     private updateHorizontalScrollbar(): void {
         const needsScrollbar = this.maxScrollX > 0;
-        this.horizontalScrollbar.style.display = needsScrollbar ? 'block' : 'none';
-        
+        this.horizontalScrollbar.style.display = needsScrollbar
+            ? "block"
+            : "none";
+
         if (needsScrollbar) {
             const trackWidth = this.horizontalScrollbar.clientWidth;
-            const thumbWidth = Math.max(20, (this.viewportWidth / this.contentWidth) * trackWidth);
-            const scrollableWidth = trackWidth - thumbWidth;
-            
-            this.horizontalThumb.style.width = thumbWidth + 'px';
-            
-            if (this.maxScrollX > 0) {
-                const thumbPosition = (this.currentScrollX / this.maxScrollX) * scrollableWidth;
-                this.horizontalThumb.style.left = thumbPosition + 'px';
-            } else {
-                this.horizontalThumb.style.left = '0px';
-            }
+            const thumbWidth = Math.max(
+                20,
+                (this.viewportWidth / this.contentWidth) * trackWidth
+            );
+
+            this.horizontalThumb.style.width = thumbWidth + "px";
+            this.updateHorizontalThumbPosition();
         }
     }
-
     /**
      * Updates the vertical scrollbar based on the viewport and content dimensions
      */
     private updateVerticalScrollbar(): void {
         const needsScrollbar = this.maxScrollY > 0;
-        this.verticalScrollbar.style.display = needsScrollbar ? 'block' : 'none';
-        
+        this.verticalScrollbar.style.display = needsScrollbar
+            ? "block"
+            : "none";
+
         if (needsScrollbar) {
             const trackHeight = this.verticalScrollbar.clientHeight;
-            const thumbHeight = Math.max(20, (this.viewportHeight / this.contentHeight) * trackHeight);
-            const scrollableHeight = trackHeight - thumbHeight;
-            
-            this.verticalThumb.style.height = thumbHeight + 'px';
-            
-            if (this.maxScrollY > 0) {
-                const thumbPosition = (this.currentScrollY / this.maxScrollY) * scrollableHeight;
-                this.verticalThumb.style.top = thumbPosition + 'px';
-            } else {
-                this.verticalThumb.style.top = '0px';
-            }
+            const thumbHeight = Math.max(
+                20,
+                (this.viewportHeight / this.contentHeight) * trackHeight
+            );
+
+            this.verticalThumb.style.height = thumbHeight + "px";
+            this.updateVerticalThumbPosition();
         }
     }
 
@@ -316,6 +451,9 @@ export class ScrollbarManager {
      * @param {number} deltaY The amount to scroll in the Y direction
      */
     public scrollBy(deltaX: number, deltaY: number): void {
-        this.setScroll(this.currentScrollX + deltaX, this.currentScrollY + deltaY);
+        this.setScroll(
+            this.currentScrollX + deltaX,
+            this.currentScrollY + deltaY
+        );
     }
 }
