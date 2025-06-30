@@ -9,6 +9,7 @@ import { InsertRowCommand } from "../commands/InsertRowCommand.js";
 import { InsertColumnCommand } from "../commands/InsertColumnCommand.js";
 import { MathUtils } from "../utils/MathUtils.js";
 import { ScrollbarManager } from "./ScrollbarManager.js";
+import { Selection } from "../models/Selection.js";
 /**
  * EventHandler class
  * @description Handles all the events for the grid
@@ -89,12 +90,13 @@ export class EventHandler {
     /**
      * The position where the context menu was opened
      */
-    private contextMenuPosition: { row: number; col: number } | null = null;
-
-    // Add these properties to track row/column header dragging
+    private contextMenuPosition: { row: number; col: number } | null = null; // Add these properties to track row/column header dragging
     private isHeaderDragging: boolean = false;
     private headerDragType: "row" | "column" | null = null;
     private headerDragStart: number = -1;
+
+    // Add properties to track resize operation state
+    private resizeStartSize: number = -1;
 
     /**
      * The constructor
@@ -418,13 +420,23 @@ export class EventHandler {
         this.isMouseDown = true;
         this.lastMousePos = { x: event.offsetX, y: event.offsetY };
 
-        const dimensions = this.grid.getDimensions();
-
-        // Check if clicking on resize handles
+        const dimensions = this.grid.getDimensions(); // Check if clicking on resize handles
         const resizeTarget = this.getResizeTarget(event.offsetX, event.offsetY);
         if (resizeTarget) {
             this.isResizing = true;
             this.resizeTarget = resizeTarget;
+
+            // Store the initial size when resize starts
+            if (resizeTarget.type === "column") {
+                this.resizeStartSize = this.grid.getColumnWidth(
+                    resizeTarget.index
+                );
+            } else {
+                this.resizeStartSize = this.grid.getRowHeight(
+                    resizeTarget.index
+                );
+            }
+
             this.canvas.style.cursor =
                 resizeTarget.type === "column" ? "col-resize" : "row-resize";
             return;
@@ -718,7 +730,6 @@ export class EventHandler {
             this.updateSelectionStats();
         }
     }
-
     /**
      * Handles the mouse up event
      */
@@ -728,9 +739,61 @@ export class EventHandler {
         this.isHeaderDragging = false;
         this.headerDragType = null;
 
-        if (this.isResizing) {
+        if (this.isResizing && this.resizeTarget) {
+            // Create and execute the final resize command when mouse is released
+            const dimensions = this.grid.getDimensions();
+
+            if (this.resizeTarget.type === "column") {
+                const finalWidth = this.grid.getColumnWidth(
+                    this.resizeTarget.index
+                );
+
+                // Only create a command if the size actually changed
+                if (finalWidth !== this.resizeStartSize) {
+                    const command = new ResizeColumnCommand(
+                        this.grid,
+                        this.resizeTarget.index,
+                        finalWidth,
+                        this.resizeStartSize // Use the original size as old width
+                    );
+
+                    // First revert to the original size
+                    this.grid.setColumnWidth(
+                        this.resizeTarget.index,
+                        this.resizeStartSize
+                    );
+
+                    // Then execute the command which will apply the final size and enable undo
+                    this.commandManager.executeCommand(command);
+                }
+            } else {
+                const finalHeight = this.grid.getRowHeight(
+                    this.resizeTarget.index
+                );
+
+                // Only create a command if the size actually changed
+                if (finalHeight !== this.resizeStartSize) {
+                    const command = new ResizeRowCommand(
+                        this.grid,
+                        this.resizeTarget.index,
+                        finalHeight,
+                        this.resizeStartSize // Use the original size as old height
+                    );
+
+                    // First revert to the original size
+                    this.grid.setRowHeight(
+                        this.resizeTarget.index,
+                        this.resizeStartSize
+                    );
+
+                    // Then execute the command which will apply the final size and enable undo
+                    this.commandManager.executeCommand(command);
+                }
+            }
+
             this.isResizing = false;
             this.resizeTarget = null;
+            this.resizeStartSize = -1;
             this.canvas.style.cursor = "cell";
         }
     }
@@ -1096,9 +1159,9 @@ export class EventHandler {
                 }
                 case "ArrowRight":
                     event.preventDefault();
-                    newCol = this.grid.getMaxCols() - 1;
                     this.grid.clearAllSelections();
                     selection.start(newRow, newCol);
+                    newCol = this.grid.getMaxCols() - 1;
                     this.renderer.render();
                     this.updateSelectionStats();
                     break;
@@ -1135,38 +1198,22 @@ export class EventHandler {
                 case "ArrowUp":
                     event.preventDefault();
                     newRow = Math.max(0, newRow - 1);
-                    this.grid.clearAllSelections();
-                    selection.start(newRow, newCol);
-                    this.highlightHeadersForCell(newRow, newCol);
-                    this.renderer.render();
-                    this.updateSelectionStats();
+                    this.handleSelectionAfterKeyDown(selection, newRow, newCol);
                     break;
                 case "ArrowDown":
                     event.preventDefault();
                     newRow = Math.min(this.grid.getMaxRows() - 1, newRow + 1);
-                    this.grid.clearAllSelections();
-                    selection.start(newRow, newCol);
-                    this.highlightHeadersForCell(newRow, newCol);
-                    this.renderer.render();
-                    this.updateSelectionStats();
+                    this.handleSelectionAfterKeyDown(selection, newRow, newCol);
                     break;
                 case "ArrowLeft":
                     event.preventDefault();
                     newCol = Math.max(0, newCol - 1);
-                    this.grid.clearAllSelections();
-                    selection.start(newRow, newCol);
-                    this.highlightHeadersForCell(newRow, newCol);
-                    this.renderer.render();
-                    this.updateSelectionStats();
+                    this.handleSelectionAfterKeyDown(selection, newRow, newCol);
                     break;
                 case "ArrowRight":
                     event.preventDefault();
                     newCol = Math.min(this.grid.getMaxCols() - 1, newCol + 1);
-                    this.grid.clearAllSelections();
-                    selection.start(newRow, newCol);
-                    this.highlightHeadersForCell(newRow, newCol);
-                    this.renderer.render();
-                    this.updateSelectionStats();
+                    this.handleSelectionAfterKeyDown(selection, newRow, newCol);
                     break;
                 case "Enter":
                     const cellRect = this.getCellRect(newRow, newCol);
@@ -1210,6 +1257,24 @@ export class EventHandler {
 
         // Make sure the cell is visible
         this.ensureCellVisible(newRow, newCol);
+    }
+
+    /**
+     * Handles the selection after a key down event
+     * @param selection - The current selection
+     * @param newRow - The new row index
+     * @param newCol - The new column index
+     */
+    private handleSelectionAfterKeyDown(
+        selection: Selection,
+        newRow: number,
+        newCol: number
+    ): void {
+        this.grid.clearAllSelections();
+        selection.start(newRow, newCol);
+        this.highlightHeadersForCell(newRow, newCol);
+        this.renderer.render();
+        this.updateSelectionStats();
     }
 
     /**
@@ -1324,7 +1389,6 @@ export class EventHandler {
 
         return null;
     }
-
     /**
      * Handles the resize drag event
      * @param event - The mouse event
@@ -1349,25 +1413,19 @@ export class EventHandler {
                 this.resizeTarget.index
             );
             const newWidth = Math.max(50, currentWidth + delta);
-            const command = new ResizeColumnCommand(
-                this.grid,
-                this.resizeTarget.index,
-                newWidth,
-                dimensions.columnWidth
-            );
-            this.commandManager.executeCommand(command);
+
+            // Directly update the grid without creating a command
+            // The command will be created only when the resize operation is complete (on mouse up)
+            this.grid.setColumnWidth(this.resizeTarget.index, newWidth);
         } else {
             const currentHeight = this.grid.getRowHeight(
                 this.resizeTarget.index
             );
             const newHeight = Math.max(20, currentHeight + delta);
-            const command = new ResizeRowCommand(
-                this.grid,
-                this.resizeTarget.index,
-                newHeight,
-                dimensions.rowHeight
-            );
-            this.commandManager.executeCommand(command);
+
+            // Directly update the grid without creating a command
+            // The command will be created only when the resize operation is complete (on mouse up)
+            this.grid.setRowHeight(this.resizeTarget.index, newHeight);
         }
 
         this.lastMousePos = { x: event.offsetX, y: event.offsetY };

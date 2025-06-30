@@ -1,6 +1,6 @@
 // src/commands/ResizeRowCommand.ts
-import { Command } from './Command.js';
-import { Grid } from '../core/Grid.js';
+import { Command } from "./Command.js";
+import { Grid } from "../core/Grid.js";
 
 /**
  * Resizes a row in the grid
@@ -15,12 +15,12 @@ export class ResizeRowCommand extends Command {
      * The row index
      */
     private rowIndex: number;
-    
+
     /**
      * The new height
      */
     private newHeight: number;
-    
+
     /**
      * The old height
      */
@@ -30,21 +30,26 @@ export class ResizeRowCommand extends Command {
      * The default row height to revert to when undoing
      */
     private defaultHeight: number;
-
     /**
      * The constructor
      * @param grid - The grid
      * @param rowIndex - The row index
      * @param newHeight - The new height
-     * @param defaultHeight - The default height to use when undoing (optional)
+     * @param oldHeight - The old height to revert to when undoing (optional, defaults to current height)
      */
-    constructor(grid: Grid, rowIndex: number, newHeight: number, defaultHeight?: number) {
+    constructor(
+        grid: Grid,
+        rowIndex: number,
+        newHeight: number,
+        oldHeight?: number
+    ) {
         super();
         this.grid = grid;
         this.rowIndex = rowIndex;
         this.newHeight = newHeight;
-        this.oldHeight = grid.getRowHeight(rowIndex);
-        this.defaultHeight = defaultHeight || this.oldHeight;
+        this.oldHeight =
+            oldHeight !== undefined ? oldHeight : grid.getRowHeight(rowIndex);
+        this.defaultHeight = this.oldHeight;
     }
 
     /**
