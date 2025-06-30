@@ -148,24 +148,6 @@ export class EventHandler {
     }
 
     /**
-     * Sets the scrollbar manager
-     * @param scrollbarManager - The scrollbar manager
-     */
-    public setScrollbarManager(scrollbarManager: ScrollbarManager): void {
-        this.scrollbarManager = scrollbarManager;
-    }
-
-    /**
-     * Handles the scroll event
-     */
-    public handleScroll(): void {
-        // Update cell editor position during any scroll event
-        if (this.editingCell) {
-            this.updateCellEditorPosition();
-        }
-    }
-
-    /**
      * Sets up the event listeners
      */
     private setupEventListeners(): void {
@@ -258,38 +240,11 @@ export class EventHandler {
     }
 
     /**
-     * Creates the cell editor
+     * Sets the scrollbar manager
+     * @param scrollbarManager - The scrollbar manager
      */
-    private createCellEditor(): void {
-        this.cellEditor = document.createElement("input");
-        this.cellEditor.type = "text";
-        this.cellEditor.style.position = "absolute";
-        this.cellEditor.style.display = "none";
-        // this.cellEditor.style.border = '2px solid #316AC5';
-        this.cellEditor.style.padding = "2px";
-        // this.cellEditor.style.fontSize = '16px';
-        this.cellEditor.style.fontFamily = "Calibri";
-        // this.cellEditor.style.zIndex = '10';
-        this.cellEditor.style.outline = "none";
-        this.cellEditor.style.boxSizing = "border-box";
-        this.cellEditor.style.margin = "0";
-
-        this.cellEditor.addEventListener(
-            "blur",
-            this.finishCellEdit.bind(this)
-        );
-        this.cellEditor.addEventListener(
-            "keydown",
-            this.handleEditorKeyDown.bind(this)
-        );
-
-        // Mobile-specific events
-        this.cellEditor.addEventListener("touchend", (e) => {
-            // Prevent bubbling to allow the virtual keyboard to appear
-            e.stopPropagation();
-        });
-
-        document.body.appendChild(this.cellEditor);
+    public setScrollbarManager(scrollbarManager: ScrollbarManager): void {
+        this.scrollbarManager = scrollbarManager;
     }
 
     /**
@@ -1258,6 +1213,44 @@ export class EventHandler {
     }
 
     /**
+     * Handles the scroll event
+     */
+    public handleScroll(): void {
+        // Update cell editor position during any scroll event
+        if (this.editingCell) {
+            this.updateCellEditorPosition();
+        }
+    }
+
+    /**
+     * Handles the key down event for the cell editor
+     * @param event - The keyboard event
+     */
+    private handleEditorKeyDown(event: KeyboardEvent): void {
+        if (event.key === "Enter") {
+            this.finishCellEdit();
+        } else if (event.key === "Escape") {
+            this.cellEditor!.style.display = "none";
+            this.editingCell = null;
+            this.canvas.focus();
+        }
+    }
+
+    /**
+     * Handles the resize event
+     */
+    private handleResize(): void {
+        // Use a timeout to debounce resize events
+        if (this.resizeTimeout) {
+            clearTimeout(this.resizeTimeout);
+        }
+
+        this.resizeTimeout = setTimeout(() => {
+            this.renderer.handleWindowResize();
+        }, 100);
+    }
+
+    /**
      * Gets the resize target
      * @param x - The x position
      * @param y - The y position
@@ -1388,6 +1381,228 @@ export class EventHandler {
     }
 
     /**
+     * Handles the calculation
+     * @param value - The value
+     * @param editingCellRow - The row of the cell containing the formula (optional)
+     * @param editingCellCol - The column of the cell containing the formula (optional)
+     * @returns The calculated result or null if not a formula
+     */
+    public handleCalculation(value: string): number | null {
+        // Check if it's a formula starting with =
+        if (!value.startsWith("=")) {
+            return null;
+        }
+
+        // Extract the function and range, e.g., "=SUM(A1:A10)"
+        const formulaMatch = value.match(/^=(\w+)\(([A-Z]+\d+:[A-Z]+\d+)\)$/);
+        if (!formulaMatch) return null;
+
+        const functionName = formulaMatch[1].toUpperCase();
+        const range = formulaMatch[2];
+
+        // Parse the range
+        const rangeMatch = range.match(/([A-Z]+)(\d+):([A-Z]+)(\d+)/);
+        if (!rangeMatch) return null;
+
+        const startRow = rangeMatch[2];
+        const startCol = rangeMatch[1];
+        const endRow = rangeMatch[4];
+        const endCol = rangeMatch[3];
+
+        const startRowIndex = parseInt(startRow) - 1;
+        const startColIndex = startCol.charCodeAt(0) - 65;
+        const endRowIndex = parseInt(endRow) - 1;
+        const endColIndex = endCol.charCodeAt(0) - 65;
+
+        const cellsInRange = this.grid.getCellsInRange(
+            startRowIndex,
+            startColIndex,
+            endRowIndex,
+            endColIndex
+        );
+
+        // Calculate the result based on the function
+        let result: number | null = null;
+
+        switch (functionName) {
+            case "SUM":
+                result = this.calculateSum(cellsInRange);
+                break;
+            case "AVG":
+            case "AVERAGE":
+                result = this.calculateAverage(cellsInRange);
+                break;
+            case "MIN":
+                result = this.calculateMin(cellsInRange);
+                break;
+            case "MAX":
+                result = this.calculateMax(cellsInRange);
+                break;
+            case "COUNT":
+                result = this.calculateCount(cellsInRange);
+                break;
+            default:
+                console.warn(`Unsupported function: ${functionName}`);
+                return null;
+        } // Select the cells in the range for visual feedback
+
+        this.grid.getSelection().start(startRowIndex, startColIndex);
+        this.grid.getSelection().extend(endRowIndex, endColIndex);
+        this.updateSelectionStats();
+        this.highlightHeadersForSelection();
+        this.renderer.render();
+
+        return result;
+    }
+
+    /**
+     * Handles the touch start event for mobile devices
+     * @param event - The touch event
+     */
+    private handleTouchStart(event: TouchEvent): void {
+        // Prevent default to avoid scrolling the page
+        event.preventDefault();
+
+        if (event.touches.length === 1) {
+            const touch = event.touches[0];
+            const rect = this.canvas.getBoundingClientRect();
+
+            // Convert touch coordinates to canvas coordinates
+            const offsetX = touch.clientX - rect.left;
+            const offsetY = touch.clientY - rect.top;
+
+            // Create a synthetic mouse event
+            const mouseEvent = {
+                offsetX,
+                offsetY,
+                preventDefault: () => {},
+                stopPropagation: () => {},
+                button: 0, // Left mouse button
+            } as unknown as MouseEvent;
+
+            // Handle as a mouse down event
+            this.handleMouseDown(mouseEvent);
+
+            // Store the touch position for potential double-tap detection
+            this.lastTouchPosition = { x: offsetX, y: offsetY };
+            this.lastTouchTime = Date.now();
+        }
+    }
+
+    /**
+     * Handles the touch move event for mobile devices
+     * @param event - The touch event
+     */
+    private handleTouchMove(event: TouchEvent): void {
+        // Prevent default to avoid scrolling the page when manipulating the grid
+        event.preventDefault();
+
+        if (
+            event.touches.length === 1 &&
+            (this.isMouseDown || this.isHeaderDragging)
+        ) {
+            const touch = event.touches[0];
+            const rect = this.canvas.getBoundingClientRect();
+
+            // Convert touch coordinates to canvas coordinates
+            const offsetX = touch.clientX - rect.left;
+            const offsetY = touch.clientY - rect.top;
+
+            // Create a synthetic mouse event
+            const mouseEvent = {
+                offsetX,
+                offsetY,
+                preventDefault: () => {},
+                stopPropagation: () => {},
+            } as unknown as MouseEvent;
+
+            // Handle as a mouse move event
+            this.handleMouseMove(mouseEvent);
+        }
+    }
+
+    /**
+     * Handles the touch end event for mobile devices
+     * @param event - The touch event
+     */
+    private handleTouchEnd(event: TouchEvent): void {
+        // Create a synthetic mouse event
+        const mouseEvent = {
+            preventDefault: () => {},
+            stopPropagation: () => {},
+        } as unknown as MouseEvent;
+
+        // Handle as a mouse up event
+        this.handleMouseUp();
+
+        // Check for double-tap (similar to double-click)
+        if (this.lastTouchPosition && this.lastTouchTime) {
+            const now = Date.now();
+            const timeDiff = now - this.lastTouchTime;
+
+            if (timeDiff < 300) {
+                // 300ms threshold for double-tap
+                const touch = event.changedTouches[0];
+                const rect = this.canvas.getBoundingClientRect();
+
+                // Convert touch coordinates to canvas coordinates
+                const offsetX = touch.clientX - rect.left;
+                const offsetY = touch.clientY - rect.top;
+
+                // Create a synthetic mouse event for double-click
+                const dblClickEvent = {
+                    offsetX,
+                    offsetY,
+                    preventDefault: () => {},
+                    stopPropagation: () => {},
+                } as unknown as MouseEvent;
+
+                // Simulate double-click to edit cell
+                this.handleDoubleClick(dblClickEvent);
+            }
+
+            // Reset touch tracking
+            this.lastTouchPosition = null;
+            this.lastTouchTime = 0;
+        }
+    }
+
+    /**
+     * Creates the cell editor
+     */
+    private createCellEditor(): void {
+        this.cellEditor = document.createElement("input");
+        this.cellEditor.type = "text";
+        this.cellEditor.style.position = "absolute";
+        this.cellEditor.style.display = "none";
+        // this.cellEditor.style.border = '2px solid #316AC5';
+        this.cellEditor.style.padding = "2px";
+        // this.cellEditor.style.fontSize = '16px';
+        this.cellEditor.style.fontFamily = "Calibri";
+        // this.cellEditor.style.zIndex = '10';
+        this.cellEditor.style.outline = "none";
+        this.cellEditor.style.boxSizing = "border-box";
+        this.cellEditor.style.margin = "0";
+
+        this.cellEditor.addEventListener(
+            "blur",
+            this.finishCellEdit.bind(this)
+        );
+        this.cellEditor.addEventListener(
+            "keydown",
+            this.handleEditorKeyDown.bind(this)
+        );
+
+        // Mobile-specific events
+        this.cellEditor.addEventListener("touchend", (e) => {
+            // Prevent bubbling to allow the virtual keyboard to appear
+            e.stopPropagation();
+        });
+
+        document.body.appendChild(this.cellEditor);
+    }
+
+    /**
      * Starts editing a cell
      * @param row - The row index
      * @param col - The column index
@@ -1485,20 +1700,6 @@ export class EventHandler {
         this.cellEditor.style.display = "none";
         this.editingCell = null;
         this.canvas.focus();
-    }
-
-    /**
-     * Handles the key down event for the cell editor
-     * @param event - The keyboard event
-     */
-    private handleEditorKeyDown(event: KeyboardEvent): void {
-        if (event.key === "Enter") {
-            this.finishCellEdit();
-        } else if (event.key === "Escape") {
-            this.cellEditor!.style.display = "none";
-            this.editingCell = null;
-            this.canvas.focus();
-        }
     }
 
     /**
@@ -1706,20 +1907,6 @@ export class EventHandler {
     }
 
     /**
-     * Handles the resize event
-     */
-    private handleResize(): void {
-        // Use a timeout to debounce resize events
-        if (this.resizeTimeout) {
-            clearTimeout(this.resizeTimeout);
-        }
-
-        this.resizeTimeout = setTimeout(() => {
-            this.renderer.handleWindowResize();
-        }, 100);
-    }
-
-    /**
      * Updates the cell editor position
      */
     private updateCellEditorPosition(): void {
@@ -1750,193 +1937,6 @@ export class EventHandler {
             // Update font size based on zoom factor
             this.cellEditor.style.fontSize =
                 this.BASE_EDITOR_FONT_SIZE * zoomFactor + "px";
-        }
-    }
-
-    /**
-     * Handles the calculation
-     * @param value - The value
-     * @param editingCellRow - The row of the cell containing the formula (optional)
-     * @param editingCellCol - The column of the cell containing the formula (optional)
-     * @returns The calculated result or null if not a formula
-     */
-    public handleCalculation(value: string): number | null {
-        // Check if it's a formula starting with =
-        if (!value.startsWith("=")) {
-            return null;
-        }
-
-        // Extract the function and range, e.g., "=SUM(A1:A10)"
-        const formulaMatch = value.match(/^=(\w+)\(([A-Z]+\d+:[A-Z]+\d+)\)$/);
-        if (!formulaMatch) return null;
-
-        const functionName = formulaMatch[1].toUpperCase();
-        const range = formulaMatch[2];
-
-        // Parse the range
-        const rangeMatch = range.match(/([A-Z]+)(\d+):([A-Z]+)(\d+)/);
-        if (!rangeMatch) return null;
-
-        const startRow = rangeMatch[2];
-        const startCol = rangeMatch[1];
-        const endRow = rangeMatch[4];
-        const endCol = rangeMatch[3];
-
-        const startRowIndex = parseInt(startRow) - 1;
-        const startColIndex = startCol.charCodeAt(0) - 65;
-        const endRowIndex = parseInt(endRow) - 1;
-        const endColIndex = endCol.charCodeAt(0) - 65;
-
-        const cellsInRange = this.grid.getCellsInRange(
-            startRowIndex,
-            startColIndex,
-            endRowIndex,
-            endColIndex
-        );
-
-        // Calculate the result based on the function
-        let result: number | null = null;
-
-        switch (functionName) {
-            case "SUM":
-                result = this.calculateSum(cellsInRange);
-                break;
-            case "AVG":
-            case "AVERAGE":
-                result = this.calculateAverage(cellsInRange);
-                break;
-            case "MIN":
-                result = this.calculateMin(cellsInRange);
-                break;
-            case "MAX":
-                result = this.calculateMax(cellsInRange);
-                break;
-            case "COUNT":
-                result = this.calculateCount(cellsInRange);
-                break;
-            default:
-                console.warn(`Unsupported function: ${functionName}`);
-                return null;
-        } // Select the cells in the range for visual feedback
-
-        this.grid.getSelection().start(startRowIndex, startColIndex);
-        this.grid.getSelection().extend(endRowIndex, endColIndex);
-        this.updateSelectionStats();
-        this.highlightHeadersForSelection();
-        this.renderer.render();
-
-        return result;
-    }
-
-    /**
-     * Handles the touch start event for mobile devices
-     * @param event - The touch event
-     */
-    private handleTouchStart(event: TouchEvent): void {
-        // Prevent default to avoid scrolling the page
-        event.preventDefault();
-
-        if (event.touches.length === 1) {
-            const touch = event.touches[0];
-            const rect = this.canvas.getBoundingClientRect();
-
-            // Convert touch coordinates to canvas coordinates
-            const offsetX = touch.clientX - rect.left;
-            const offsetY = touch.clientY - rect.top;
-
-            // Create a synthetic mouse event
-            const mouseEvent = {
-                offsetX,
-                offsetY,
-                preventDefault: () => {},
-                stopPropagation: () => {},
-                button: 0, // Left mouse button
-            } as unknown as MouseEvent;
-
-            // Handle as a mouse down event
-            this.handleMouseDown(mouseEvent);
-
-            // Store the touch position for potential double-tap detection
-            this.lastTouchPosition = { x: offsetX, y: offsetY };
-            this.lastTouchTime = Date.now();
-        }
-    }
-
-    /**
-     * Handles the touch move event for mobile devices
-     * @param event - The touch event
-     */
-    private handleTouchMove(event: TouchEvent): void {
-        // Prevent default to avoid scrolling the page when manipulating the grid
-        event.preventDefault();
-
-        if (
-            event.touches.length === 1 &&
-            (this.isMouseDown || this.isHeaderDragging)
-        ) {
-            const touch = event.touches[0];
-            const rect = this.canvas.getBoundingClientRect();
-
-            // Convert touch coordinates to canvas coordinates
-            const offsetX = touch.clientX - rect.left;
-            const offsetY = touch.clientY - rect.top;
-
-            // Create a synthetic mouse event
-            const mouseEvent = {
-                offsetX,
-                offsetY,
-                preventDefault: () => {},
-                stopPropagation: () => {},
-            } as unknown as MouseEvent;
-
-            // Handle as a mouse move event
-            this.handleMouseMove(mouseEvent);
-        }
-    }
-
-    /**
-     * Handles the touch end event for mobile devices
-     * @param event - The touch event
-     */
-    private handleTouchEnd(event: TouchEvent): void {
-        // Create a synthetic mouse event
-        const mouseEvent = {
-            preventDefault: () => {},
-            stopPropagation: () => {},
-        } as unknown as MouseEvent;
-
-        // Handle as a mouse up event
-        this.handleMouseUp();
-
-        // Check for double-tap (similar to double-click)
-        if (this.lastTouchPosition && this.lastTouchTime) {
-            const now = Date.now();
-            const timeDiff = now - this.lastTouchTime;
-
-            if (timeDiff < 300) {
-                // 300ms threshold for double-tap
-                const touch = event.changedTouches[0];
-                const rect = this.canvas.getBoundingClientRect();
-
-                // Convert touch coordinates to canvas coordinates
-                const offsetX = touch.clientX - rect.left;
-                const offsetY = touch.clientY - rect.top;
-
-                // Create a synthetic mouse event for double-click
-                const dblClickEvent = {
-                    offsetX,
-                    offsetY,
-                    preventDefault: () => {},
-                    stopPropagation: () => {},
-                } as unknown as MouseEvent;
-
-                // Simulate double-click to edit cell
-                this.handleDoubleClick(dblClickEvent);
-            }
-
-            // Reset touch tracking
-            this.lastTouchPosition = null;
-            this.lastTouchTime = 0;
         }
     }
 
