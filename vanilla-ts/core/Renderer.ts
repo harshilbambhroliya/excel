@@ -369,8 +369,8 @@ export class Renderer {
      */
     private checkForGridExpansionNeeds(): void {
         // Get the visible range at the current zoom level
-        const { startRow, endRow } = this.getVisibleRowRange();
-        const { startCol, endCol } = this.getVisibleColumnRange();
+        const { endRow } = this.getVisibleRowRange();
+        const { endCol } = this.getVisibleColumnRange();
 
         // Get total rows and columns
         const currentRows = this.grid.getCurrentRows();
@@ -485,10 +485,6 @@ export class Renderer {
         );
         this.ctx.clip();
 
-        // Calculate the available space and scaled content size to ensure full viewport coverage
-        const contentWidth = this.viewport.width - dimensions.headerWidth;
-        const contentHeight = this.viewport.height - dimensions.headerHeight;
-
         // Apply zoom transform to content area only
         // First we translate to the corner of the content area
         this.ctx.translate(dimensions.headerWidth, dimensions.headerHeight);
@@ -506,9 +502,6 @@ export class Renderer {
         // Enable image smoothing for text (for better readability when zoomed)
         this.ctx.imageSmoothingEnabled = true;
         this.ctx.imageSmoothingQuality = "high";
-
-        // Store the current zoom factor for cells to use later
-        const currentZoomFactor = this.zoomFactor;
 
         // Restore context before rendering cells to ensure text isn't hidden
         this.ctx.restore();
@@ -902,7 +895,7 @@ export class Renderer {
         );
 
         // Draw border lines - Excel uses very subtle borders
-        this.ctx.strokeStyle = "#d4d4d4";
+        this.ctx.strokeStyle = "#B7B7B7";
         this.ctx.lineWidth = 0.5;
 
         // Bottom border
@@ -919,16 +912,18 @@ export class Renderer {
         this.ctx.lineTo(dimensions.headerWidth + 0.5, dimensions.headerHeight);
         this.ctx.stroke();
 
-        // Add a triangle as seen in Excel's corner cell
-        this.ctx.fillStyle = "#d4d4d4";
-        this.ctx.lineWidth = 3 / this.devicePixelRatio;
-
-        // Diagonal line from bottom-left to top-right
+        // Add a filled triangle as seen in Excel's corner cell
+        const triSize = 13 * this.zoomFactor;
+        const padding = 3 * this.zoomFactor;
+        const x0 = dimensions.headerWidth - padding;
+        const y0 = dimensions.headerHeight - padding;
         this.ctx.beginPath();
-        this.ctx.moveTo(dimensions.headerWidth - 10, dimensions.headerHeight);
-        this.ctx.lineTo(dimensions.headerWidth, dimensions.headerHeight - 10);
+        this.ctx.moveTo(x0, y0);
+        this.ctx.lineTo(x0 - triSize, y0);
+        this.ctx.lineTo(x0, y0 - triSize);
+        this.ctx.closePath();
+        this.ctx.fillStyle = "#B7B7B7";
         this.ctx.fill();
-        this.ctx.stroke();
     }
 
     /**
@@ -1013,10 +1008,6 @@ export class Renderer {
                     this.ctx.fillStyle =
                         cell.style.backgroundColor || "#ffffff";
                     this.ctx.fillRect(xPos, yPos, scaledWidth, scaledHeight);
-
-                    // Check if cell is part of the selection
-                    const isSelected =
-                        selection.isActive && selection.contains(row, col);
 
                     // Use normal color for text even in selected cells - maintains readability
                     this.ctx.fillStyle = cell.style.textColor || "#000000";
@@ -1611,8 +1602,8 @@ export class Renderer {
      */
     private checkAndExpandGridOnZoom(): void {
         // Get the visible range at the current zoom level
-        const { startRow, endRow } = this.getVisibleRowRange();
-        const { startCol, endCol } = this.getVisibleColumnRange();
+        const { endRow } = this.getVisibleRowRange();
+        const { endCol } = this.getVisibleColumnRange();
 
         // Get total rows and columns
         const currentRows = this.grid.getCurrentRows();
@@ -1625,9 +1616,6 @@ export class Renderer {
         // When zoomed out, we want to expand earlier to ensure smooth scrolling
         const zoomFactor = Math.max(0.1, this.zoomFactor); // Prevent division by zero
 
-        // Adjust thresholds based on zoom - the more zoomed out, the earlier we expand
-        // When zoomed out (smaller zoomFactor), we want a lower threshold percentage
-        // So if zoom is 0.5, we might want to expand at 40% (0.8 * 0.5) instead of 80%
         const rowThreshold = Math.floor(currentRows * 0.8 * zoomFactor);
         const colThreshold = Math.floor(currentCols * 0.8 * zoomFactor);
 

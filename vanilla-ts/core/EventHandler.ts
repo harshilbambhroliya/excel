@@ -1445,6 +1445,7 @@ export class EventHandler {
         if (!this.editingCell || !this.cellEditor) return;
 
         const newValue = this.cellEditor.value;
+        this.handleCalculation(newValue);
         const oldValue = this.grid.getCellValue(
             this.editingCell.row,
             this.editingCell.col
