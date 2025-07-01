@@ -16,15 +16,27 @@ export class HeaderDragHandler extends BaseHandler {
     // Auto-scrolling properties
     private autoScrollTimer: number | null = null;
     private autoScrollDirection: { x: number; y: number } = { x: 0, y: 0 };
-    private autoScrollSpeed: number = 15;
-    private autoScrollZone: number = 30;
+    private autoScrollSpeed: number = 20; // Increased for better responsiveness
+    private autoScrollZone: number = 50; // Increased for larger detection area
+    private autoScrollMaxFactor: number = 5; // Maximum scroll speed multiplier
 
+    /**
+     * Creates a new HeaderDragHandler instance
+     * @param context - Context containing grid and renderer
+     * @param dragType - Type of header being dragged ("row" or "column")
+     * @param startIndex - Starting index for the drag operation
+     */
     constructor(context: any, dragType: "row" | "column", startIndex: number) {
         super(context);
         this.headerDragType = dragType;
         this.headerDragStart = startIndex;
         // Don't select immediately - wait for mouse down
     }
+    /**
+     * Handles mouse down event to start header dragging
+     * @param event - Mouse event
+     * @returns true if handled, false otherwise
+     */
     handleMouseDown(event: MouseEvent): boolean {
         // Set up document-level mouse tracking for when mouse leaves canvas
         this.setupDocumentMouseTracking(event);
@@ -41,6 +53,11 @@ export class HeaderDragHandler extends BaseHandler {
         return true;
     }
 
+    /**
+     * Handles mouse move event to update header selection
+     * @param event - Mouse event
+     * @returns true if handled, false otherwise
+     */
     handleMouseMove(event: MouseEvent): boolean {
         const dimensions = this.grid.getDimensions();
 
@@ -67,7 +84,16 @@ export class HeaderDragHandler extends BaseHandler {
                 y += rowHeight;
             }
 
-            // If we found a valid row and it's different from the initial row
+            // Handle edge cases when mouse is outside grid boundaries
+            if (currentRow < 0) {
+                if (contentY < 0) {
+                    currentRow = 0; // At top edge
+                } else {
+                    currentRow = this.grid.getCurrentRows() - 1; // At bottom edge
+                }
+            }
+
+            // Always update selection, whether we're at an edge or within bounds
             if (currentRow >= 0 && currentRow < this.grid.getCurrentRows()) {
                 // Select the range of rows
                 this.grid.selectRowRange(this.headerDragStart, currentRow);
@@ -96,13 +122,20 @@ export class HeaderDragHandler extends BaseHandler {
                 x += colWidth;
             }
 
-            // If we found a valid column and it's different from the initial column
+            // Handle edge cases when mouse is outside grid boundaries
+            if (currentCol < 0) {
+                if (contentX < 0) {
+                    currentCol = 0; // At left edge
+                } else {
+                    currentCol = this.grid.getCurrentCols() - 1; // At right edge
+                }
+            }
+
+            // Always update selection, whether we're at an edge or within bounds
             if (currentCol >= 0 && currentCol < this.grid.getCurrentCols()) {
                 // Select the range of columns
                 this.grid.selectColumnRange(this.headerDragStart, currentCol);
                 this.context.highlightHeadersForSelection();
-                // this.renderer.render();
-                // this.context.updateSelectionStats();
             }
         }
         this.renderer.render();
@@ -181,14 +214,28 @@ export class HeaderDragHandler extends BaseHandler {
     private startAutoScroll(): void {
         if (this.autoScrollTimer) return;
 
-        this.autoScrollTimer = window.setInterval(() => {
-            this.performAutoScroll();
-        }, 16); // ~60fps
+        // Use requestAnimationFrame for smoother scrolling across browsers
+        let lastTimestamp = 0;
+        const animateScroll = (timestamp: number) => {
+            if (!this.autoScrollTimer) return;
+
+            // Throttle to ~60fps
+            if (timestamp - lastTimestamp > 16) {
+                lastTimestamp = timestamp;
+                this.performAutoScroll();
+            }
+
+            // Continue animation loop
+            this.autoScrollTimer = requestAnimationFrame(animateScroll);
+        };
+
+        // Start the animation
+        this.autoScrollTimer = requestAnimationFrame(animateScroll);
     }
 
     private stopAutoScroll(): void {
         if (this.autoScrollTimer) {
-            clearInterval(this.autoScrollTimer);
+            cancelAnimationFrame(this.autoScrollTimer);
             this.autoScrollTimer = null;
         }
         this.autoScrollDirection = { x: 0, y: 0 };
@@ -221,127 +268,24 @@ export class HeaderDragHandler extends BaseHandler {
         this.context.updateSelectionStats();
     }
     private updateSelectionDuringAutoScroll(): void {
-        // Try to use actual mouse position if available
+        // Use actual global mouse position for selection
         const canvasRect = this.canvas.getBoundingClientRect();
         const canvasX = this.lastGlobalMousePos.x - canvasRect.left;
         const canvasY = this.lastGlobalMousePos.y - canvasRect.top;
 
-        // For column header selection, only use X coordinates and ignore Y changes
-        // For row header selection, only use Y coordinates and ignore X changes
-        let targetX = canvasX;
-        let targetY = canvasY;
-
-        if (this.headerDragType === "column") {
-            // Column header dragging - only handle horizontal movement
-            if (canvasX < 0) {
-                // Mouse is to the left - select leftmost visible column
-                targetX = 0;
-            } else if (canvasX > canvasRect.width) {
-                // Mouse is to the right - select rightmost visible column
-                targetX = canvasRect.width;
-            }
-            // Keep Y position within header area for column dragging
-            targetY = Math.min(
-                targetY,
-                this.grid.getDimensions().headerHeight - 1
-            );
-        } else if (this.headerDragType === "row") {
-            // Row header dragging - only handle vertical movement
-            if (canvasY < 0) {
-                // Mouse is above - select topmost visible row
-                targetY = 0;
-            } else if (canvasY > canvasRect.height) {
-                // Mouse is below - select bottommost visible row
-                targetY = canvasRect.height;
-            }
-            // Keep X position within header area for row dragging
-            targetX = Math.min(
-                targetX,
-                this.grid.getDimensions().headerWidth - 1
-            );
-        }
-
-        // Create a synthetic event to update the selection
+        // Create a synthetic event with mouse position
         const syntheticEvent = {
-            offsetX: targetX,
-            offsetY: targetY,
+            offsetX: canvasX,
+            offsetY: canvasY,
             clientX: this.lastGlobalMousePos.x,
             clientY: this.lastGlobalMousePos.y,
             preventDefault: () => {},
             stopPropagation: () => {},
         } as MouseEvent;
 
-        // Call the appropriate selection logic without auto-scroll to prevent recursion
-        const dimensions = this.grid.getDimensions();
-
-        if (this.headerDragType === "row") {
-            // Row header dragging
-            const zoomFactor = this.renderer.getZoom();
-            const scrollY = this.renderer.getScrollPosition().y;
-
-            const contentY =
-                (syntheticEvent.offsetY - dimensions.headerHeight) /
-                    zoomFactor +
-                scrollY;
-
-            let currentRow = -1;
-            let y = 0;
-            for (let i = 0; i < this.grid.getCurrentRows(); i++) {
-                const rowHeight = this.grid.getRowHeight(i);
-                if (contentY >= y && contentY < y + rowHeight) {
-                    currentRow = i;
-                    break;
-                }
-                y += rowHeight;
-            }
-
-            // If we can't find a row (e.g., scrolled past the end), use the edge row
-            if (currentRow < 0) {
-                if (contentY < 0) {
-                    currentRow = 0;
-                } else {
-                    currentRow = this.grid.getCurrentRows() - 1;
-                }
-            }
-
-            if (currentRow >= 0 && currentRow < this.grid.getCurrentRows()) {
-                this.grid.selectRowRange(this.headerDragStart, currentRow);
-                this.context.highlightHeadersForSelection();
-            }
-        } else if (this.headerDragType === "column") {
-            // Column header dragging
-            const zoomFactor = this.renderer.getZoom();
-            const scrollX = this.renderer.getScrollPosition().x;
-
-            const contentX =
-                (syntheticEvent.offsetX - dimensions.headerWidth) / zoomFactor +
-                scrollX;
-
-            let currentCol = -1;
-            let x = 0;
-            for (let i = 0; i < this.grid.getCurrentCols(); i++) {
-                const colWidth = this.grid.getColumnWidth(i);
-                if (contentX >= x && contentX < x + colWidth) {
-                    currentCol = i;
-                    break;
-                }
-                x += colWidth;
-            }
-
-            // If we can't find a column (e.g., scrolled past the end), use the edge column
-            if (currentCol < 0) {
-                if (contentX < 0) {
-                    currentCol = 0;
-                } else {
-                    currentCol = this.grid.getCurrentCols() - 1;
-                }
-            }
-
-            if (currentCol >= 0 && currentCol < this.grid.getCurrentCols()) {
-                this.grid.selectColumnRange(this.headerDragStart, currentCol);
-                this.context.highlightHeadersForSelection();
-            }
-        }
+        // Reuse the same handleMouseMove logic for consistency
+        // This ensures both in-canvas and out-of-canvas selection work the same way
+        this.handleMouseMove(syntheticEvent);
     }
     private handleAutoScrollOutsideCanvas(
         canvasX: number,
@@ -358,15 +302,21 @@ export class HeaderDragHandler extends BaseHandler {
             if (canvasX < 0) {
                 // Mouse is to the left of canvas
                 const distance = Math.abs(canvasX);
-                scrollX =
-                    -this.autoScrollSpeed *
-                    Math.min(distance / this.autoScrollZone, 3);
+                // Use an exponential function for more responsive distant scrolling
+                const factor = Math.min(
+                    this.autoScrollMaxFactor,
+                    1 + Math.pow(distance / this.autoScrollZone, 1.5)
+                );
+                scrollX = -this.autoScrollSpeed * factor;
             } else if (canvasX > canvasRect.width) {
                 // Mouse is to the right of canvas
                 const distance = canvasX - canvasRect.width;
-                scrollX =
-                    this.autoScrollSpeed *
-                    Math.min(distance / this.autoScrollZone, 3);
+                // Use an exponential function for more responsive distant scrolling
+                const factor = Math.min(
+                    this.autoScrollMaxFactor,
+                    1 + Math.pow(distance / this.autoScrollZone, 1.5)
+                );
+                scrollX = this.autoScrollSpeed * factor;
             }
             // Don't scroll vertically for column header selection
         } else if (this.headerDragType === "row") {
@@ -374,15 +324,21 @@ export class HeaderDragHandler extends BaseHandler {
             if (canvasY < 0) {
                 // Mouse is above canvas
                 const distance = Math.abs(canvasY);
-                scrollY =
-                    -this.autoScrollSpeed *
-                    Math.min(distance / this.autoScrollZone, 3);
+                // Use an exponential function for more responsive distant scrolling
+                const factor = Math.min(
+                    this.autoScrollMaxFactor,
+                    1 + Math.pow(distance / this.autoScrollZone, 1.5)
+                );
+                scrollY = -this.autoScrollSpeed * factor;
             } else if (canvasY > canvasRect.height) {
                 // Mouse is below canvas
                 const distance = canvasY - canvasRect.height;
-                scrollY =
-                    this.autoScrollSpeed *
-                    Math.min(distance / this.autoScrollZone, 3);
+                // Use an exponential function for more responsive distant scrolling
+                const factor = Math.min(
+                    this.autoScrollMaxFactor,
+                    1 + Math.pow(distance / this.autoScrollZone, 1.5)
+                );
+                scrollY = this.autoScrollSpeed * factor;
             }
             // Don't scroll horizontally for row header selection
         }
@@ -432,29 +388,36 @@ export class HeaderDragHandler extends BaseHandler {
         const canvasX = event.clientX - canvasRect.left;
         const canvasY = event.clientY - canvasRect.top;
 
+        // Create a synthetic event that always works whether inside or outside canvas
+        const syntheticEvent = {
+            offsetX: canvasX,
+            offsetY: canvasY,
+            clientX: event.clientX,
+            clientY: event.clientY,
+            preventDefault: () => {},
+            stopPropagation: () => {},
+        } as MouseEvent;
+
         // Check if mouse is outside canvas bounds
         const isOutsideCanvas =
             canvasX < 0 ||
             canvasX > canvasRect.width ||
             canvasY < 0 ||
             canvasY > canvasRect.height;
+
         if (isOutsideCanvas) {
             // Handle auto-scrolling when outside canvas
             this.handleAutoScrollOutsideCanvas(canvasX, canvasY, canvasRect);
 
-            // Also update selection immediately with proper edge positioning
+            // Update selection during auto-scroll with current mouse position
             this.updateSelectionDuringAutoScroll();
         } else {
-            // If back inside canvas, let the normal canvas mouse move handler take over
-            const syntheticEvent = {
-                offsetX: canvasX,
-                offsetY: canvasY,
-                clientX: event.clientX,
-                clientY: event.clientY,
-                preventDefault: () => {},
-                stopPropagation: () => {},
-            } as MouseEvent;
+            // Even when back inside canvas, we should stop auto-scrolling
+            if (this.autoScrollTimer) {
+                this.stopAutoScroll();
+            }
 
+            // Always handle the mouse move regardless of position
             this.handleMouseMove(syntheticEvent);
         }
     }
