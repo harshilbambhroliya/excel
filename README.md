@@ -1,4 +1,4 @@
-# Excel Clone - Vanilla TypeScript
+# Excel - Vanilla TypeScript
 
 A feature-rich Excel-like spreadsheet web application built with vanilla TypeScript and HTML Canvas. This project implements a functional spreadsheet with many Excel-like features without using any UI frameworks.
 
