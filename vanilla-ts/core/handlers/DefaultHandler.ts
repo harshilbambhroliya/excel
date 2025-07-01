@@ -20,6 +20,11 @@ export class DefaultHandler extends BaseHandler {
     private documentMouseUpHandler: ((event: MouseEvent) => void) | null = null;
     private lastGlobalMousePos: { x: number; y: number } = { x: 0, y: 0 };
 
+    /**
+     * Handles mouse down events to initiate resizing
+     * @param event - The mouse event
+     * @returns True if handled, false otherwise
+     */
     handleMouseDown(event: MouseEvent): boolean {
         this.canvas.focus();
         this.isMouseDown = true;
@@ -71,6 +76,11 @@ export class DefaultHandler extends BaseHandler {
         return true;
     }
 
+    /**
+     * Handles mouse move events for cell selection and dragging
+     * @param event - The mouse event
+     * @returns True if handled, false otherwise
+     */
     handleMouseMove(event: MouseEvent): boolean {
         if (!this.isMouseDown) return false;
 
@@ -114,6 +124,11 @@ export class DefaultHandler extends BaseHandler {
         return true;
     }
 
+    /**
+     * Handles mouse up events for cell selection and dragging
+     * @param event - The mouse event
+     * @returns True if handled, false otherwise
+     */
     handleMouseUp(event: MouseEvent): boolean {
         this.isMouseDown = false;
         this.isDragging = false;
@@ -127,16 +142,30 @@ export class DefaultHandler extends BaseHandler {
         return true;
     }
 
+    /**
+     * Gets the cursor style based on the current resize target
+     * @param x - The x position
+     * @param y - The y position
+     * @returns The cursor style
+     */
     getCursor(x: number, y: number): string {
         return "cell";
     }
 
+    /**
+     * Activates the default handler
+     * Sets up initial state and cursor
+     */
     onDeactivate(): void {
         this.stopAutoScroll();
         this.removeDocumentMouseTracking();
     }
 
-    // Auto-scrolling methods
+    /**
+     * Handles auto-scrolling based on mouse position
+     * @param mouseX - The x coordinate of the mouse
+     * @param mouseY - The y coordinate of the mouse
+     */
     private handleAutoScroll(mouseX: number, mouseY: number): void {
         const canvasWidth = this.canvas.clientWidth;
         const canvasHeight = this.canvas.clientHeight;
@@ -186,6 +215,9 @@ export class DefaultHandler extends BaseHandler {
         }
     }
 
+    /**
+     * Starts the auto-scroll timer
+     */
     private startAutoScroll(): void {
         if (this.autoScrollTimer) {
             return; // Already running
@@ -225,6 +257,9 @@ export class DefaultHandler extends BaseHandler {
         }, 16); // ~60fps
     }
 
+    /**
+     * Stops the auto-scroll timer
+     */
     private stopAutoScroll(): void {
         if (this.autoScrollTimer) {
             clearInterval(this.autoScrollTimer);
@@ -233,6 +268,10 @@ export class DefaultHandler extends BaseHandler {
         this.autoScrollDirection = { x: 0, y: 0 };
     }
 
+    /**
+     * Updates the selection during auto-scrolling
+     * Uses the last known mouse position to extend the selection
+     */
     private updateSelectionDuringAutoScroll(): void {
         if (!this.isDragging || !this.grid.getSelection().isActive) {
             return;
@@ -295,6 +334,12 @@ export class DefaultHandler extends BaseHandler {
         }
     }
 
+    /**
+     * Sets up document-level mouse tracking for when the mouse leaves the canvas
+     *  - Listens for mousemove and mouseup events on the document
+     *  - Handles global mouse move and mouse up events
+     *  @param initialEvent - The initial mouse event that triggered the canvas mouse down
+     * */
     private setupDocumentMouseTracking(initialEvent: MouseEvent): void {
         // Store initial global position
         this.lastGlobalMousePos = {
@@ -355,6 +400,12 @@ export class DefaultHandler extends BaseHandler {
         }
     }
 
+    /**
+     * Handles global mouse up events when the mouse is outside the canvas
+     *  - Cleans up document listeners
+     *  - Calls the normal mouse up handler
+     * @param event - The mouse event
+     */
     private handleGlobalMouseUp(event: MouseEvent): void {
         // Clean up document listeners
         this.removeDocumentMouseTracking();
@@ -363,6 +414,9 @@ export class DefaultHandler extends BaseHandler {
         this.handleMouseUp(event);
     }
 
+    /**
+     * Removes document-level mouse tracking
+     */
     private removeDocumentMouseTracking(): void {
         if (this.documentMouseMoveHandler) {
             document.removeEventListener(
@@ -381,6 +435,12 @@ export class DefaultHandler extends BaseHandler {
         }
     }
 
+    /**
+     * Handles auto-scrolling when the mouse is outside the canvas
+     * @param canvasX - The x coordinate of the mouse relative to the canvas
+     * @param canvasY - The y coordinate of the mouse relative to the canvas
+     * @param canvasRect - The bounding rectangle of the canvas
+     */
     private handleAutoScrollOutsideCanvas(
         canvasX: number,
         canvasY: number,

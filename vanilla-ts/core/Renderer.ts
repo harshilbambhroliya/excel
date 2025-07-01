@@ -517,7 +517,7 @@ export class Renderer {
         // Now render grid lines with a separate context that's not affected by zoom scaling
         this.renderGridLines();
 
-        // Render selection
+        // Finally, render the selection
         this.renderSelection();
     }
 
@@ -1246,12 +1246,12 @@ export class Renderer {
         if (isMultiCellSelection) {
             // For multi-cell selections, we need to make the first cell white
             // First draw the highlight for the entire selection
-            this.ctx.fillRect(
-                pixelAlignedX - 0.5,
-                pixelAlignedY - 0.5,
-                pixelAlignedWidth,
-                pixelAlignedHeight
-            );
+            // this.ctx.fillRect(
+            //     pixelAlignedX - 0.5,
+            //     pixelAlignedY - 0.5,
+            //     pixelAlignedWidth,
+            //     pixelAlignedHeight
+            // );
 
             // Now overwrite the first cell with white background
             const firstCellColIndex = selection.startCol;
@@ -1279,13 +1279,53 @@ export class Renderer {
             const pixelAlignedFirstCellX = Math.round(firstCellX) + 0.5;
             const pixelAlignedFirstCellY = Math.round(firstCellY) + 0.5;
 
-            this.ctx.fillStyle = "#ffffff";
-            this.ctx.fillRect(
-                pixelAlignedFirstCellX - 0.5,
-                pixelAlignedFirstCellY - 0.5,
-                firstCellWidth,
-                firstCellHeight
-            );
+            if (firstCellRowIndex > minRow) {
+                const topHeight = firstCellY - startY;
+                this.ctx.fillRect(
+                    pixelAlignedX - 0.5,
+                    pixelAlignedY - 0.5,
+                    pixelAlignedWidth,
+                    topHeight
+                );
+            }
+
+            // 2. Draw selection for the left strip (if it exists)
+            if (firstCellColIndex > minCol) {
+                const leftWidth = firstCellX - startX;
+                this.ctx.fillRect(
+                    pixelAlignedX - 0.5,
+                    pixelAlignedFirstCellY - 0.5,
+                    leftWidth,
+                    firstCellHeight
+                );
+            }
+
+            // 3. Draw selection for the right strip
+            const rightX = firstCellX + firstCellWidth;
+            if (rightX < endX) {
+                const rightWidth = endX - rightX;
+                this.ctx.fillRect(
+                    rightX,
+                    pixelAlignedFirstCellY - 0.5,
+                    rightWidth,
+                    firstCellHeight
+                );
+            }
+
+            // 4. Draw selection for the bottom strip
+            const bottomY = firstCellY + firstCellHeight;
+            if (bottomY < endY) {
+                const bottomHeight = endY - bottomY;
+                this.ctx.fillRect(
+                    pixelAlignedX - 0.5,
+                    bottomY,
+                    pixelAlignedWidth,
+                    bottomHeight
+                );
+            }
+            // Don't apply any overlay to first cell so text remains visible
+            // Previous code was using rgba(255, 255, 255, 0) which makes content invisible
+            // We simply skip filling this rect to keep the cell content visible
         } else {
             // For single-cell selections, we don't apply any highlight background
             // This keeps the cell white as required

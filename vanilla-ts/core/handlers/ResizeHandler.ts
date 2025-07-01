@@ -11,6 +11,11 @@ export class ResizeHandler extends BaseHandler {
     private resizeStartSize: number = -1;
     private lastMousePos: { x: number; y: number } = { x: 0, y: 0 };
 
+    /**
+     * Creates a new ResizeHandler instance
+     * @param context - The context containing grid, renderer, and command manager
+     * @param resizeTarget - The target to resize (row or column)
+     */
     constructor(
         context: any,
         resizeTarget: { type: "row" | "column"; index: number }
@@ -26,11 +31,21 @@ export class ResizeHandler extends BaseHandler {
         }
     }
 
+    /**
+     * Handles mouse down events to initiate resizing
+     * @param event - The mouse event
+     * @returns True if handled, false otherwise
+     */
     handleMouseDown(event: MouseEvent): boolean {
         this.lastMousePos = { x: event.offsetX, y: event.offsetY };
         return true;
     }
 
+    /**
+     * Handles mouse move events for resizing rows or columns
+     * @param event - The mouse event
+     * @returns True if handled, false otherwise
+     */
     handleMouseMove(event: MouseEvent): boolean {
         if (!this.resizeTarget) return false;
 
@@ -77,6 +92,12 @@ export class ResizeHandler extends BaseHandler {
         return true;
     }
 
+    /**
+     * Handles mouse up events
+     * This finalizes the resize operation and creates the appropriate command
+     * @param event - The mouse event
+     * @returns True if handled, false otherwise
+     */
     handleMouseUp(event: MouseEvent): boolean {
         if (!this.resizeTarget) return false;
 
@@ -133,6 +154,12 @@ export class ResizeHandler extends BaseHandler {
         return true;
     }
 
+    /**
+     * Gets the cursor style based on the current resize target
+     * @param x - The x position
+     * @param y - The y position
+     * @returns The cursor style
+     */
     getCursor(x: number, y: number): string {
         if (!this.resizeTarget) return "cell";
         return this.resizeTarget.type === "column"
@@ -140,10 +167,18 @@ export class ResizeHandler extends BaseHandler {
             : "row-resize";
     }
 
+    /**
+     * Activates the resize handler
+     * Sets the cursor style to the appropriate resize cursor
+     */
     onActivate(): void {
         this.canvas.style.cursor = this.getCursor(0, 0);
     }
 
+    /**
+     * Deactivates the resize handler
+     * Sets the cursor style back to the default cell cursor
+     */
     onDeactivate(): void {
         this.canvas.style.cursor = "cell";
     }
