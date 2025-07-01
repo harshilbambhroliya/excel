@@ -1276,7 +1276,6 @@ export class Renderer {
                     this.scrollY) *
                     this.zoomFactor;
 
-            const pixelAlignedFirstCellX = Math.round(firstCellX) + 0.5;
             const pixelAlignedFirstCellY = Math.round(firstCellY) + 0.5;
 
             if (firstCellRowIndex > minRow) {
