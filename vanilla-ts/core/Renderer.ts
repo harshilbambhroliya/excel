@@ -1045,7 +1045,7 @@ export class Renderer {
                     const textX = xPos + paddingLeft;
                     const textY = yPos + scaledHeight / 2; // Vertically center in scaled cell
                     const metrics = this.ctx.measureText(displayValue);
-                    console.log(typeof textDecoration, textDecorationLine);
+                    // console.log(typeof textDecoration, textDecorationLine);
 
                     if (textDecoration === "line-through") {
                         const strikeY = Math.floor(textY) + 0.5;
@@ -1239,12 +1239,57 @@ export class Renderer {
 
         // Draw selection highlight with a more noticeable color
         this.ctx.fillStyle = "rgba(28, 98, 57, 0.15)"; // Light green with transparency
-        this.ctx.fillRect(
-            pixelAlignedX - 0.5,
-            pixelAlignedY - 0.5,
-            pixelAlignedWidth,
-            pixelAlignedHeight
-        );
+
+        // First, determine if this is a multi-cell selection
+        const isMultiCellSelection = !(minRow === maxRow && minCol === maxCol);
+
+        if (isMultiCellSelection) {
+            // For multi-cell selections, we need to make the first cell white
+            // First draw the highlight for the entire selection
+            this.ctx.fillRect(
+                pixelAlignedX - 0.5,
+                pixelAlignedY - 0.5,
+                pixelAlignedWidth,
+                pixelAlignedHeight
+            );
+
+            // Now overwrite the first cell with white background
+            const firstCellColIndex = selection.startCol;
+            const firstCellRowIndex = selection.startRow;
+            const firstCellWidth =
+                this.grid.getColumnWidth(firstCellColIndex) * this.zoomFactor;
+            const firstCellHeight =
+                this.grid.getRowHeight(firstCellRowIndex) * this.zoomFactor;
+
+            // Calculate position of the first cell (could be different from minRow/minCol)
+            const firstCellX =
+                dimensions.headerWidth +
+                (this.getColumnPosition(firstCellColIndex) -
+                    dimensions.headerWidth -
+                    this.scrollX) *
+                    this.zoomFactor;
+
+            const firstCellY =
+                dimensions.headerHeight +
+                (this.getRowPosition(firstCellRowIndex) -
+                    dimensions.headerHeight -
+                    this.scrollY) *
+                    this.zoomFactor;
+
+            const pixelAlignedFirstCellX = Math.round(firstCellX) + 0.5;
+            const pixelAlignedFirstCellY = Math.round(firstCellY) + 0.5;
+
+            this.ctx.fillStyle = "#ffffff";
+            this.ctx.fillRect(
+                pixelAlignedFirstCellX - 0.5,
+                pixelAlignedFirstCellY - 0.5,
+                firstCellWidth,
+                firstCellHeight
+            );
+        } else {
+            // For single-cell selections, we don't apply any highlight background
+            // This keeps the cell white as required
+        }
 
         // Draw selection border with a thicker and more visible style
         this.ctx.strokeStyle = "#1c6239"; // Darker green for the border

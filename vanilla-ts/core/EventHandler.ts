@@ -649,7 +649,6 @@ export class EventHandler implements IHandlerContext {
         // Handle navigation and other keys
         this.handleNavigationKeys(event, selection, newRow, newCol);
     }
-
     /**
      * Handles navigation keys (arrows, enter, tab, etc.)
      */
@@ -668,14 +667,109 @@ export class EventHandler implements IHandlerContext {
             this.handleRegularKeys(event, selection, newRow, newCol);
         }
 
-        // Highlight corresponding headers for the new cell
-        this.highlightHeadersForCell(newRow, newCol);
+        // Get the current selection position after navigation
+        const currentSelection = this.grid.getSelection();
+        if (currentSelection.isActive) {
+            // Highlight corresponding headers for the new cell
+            this.highlightHeadersForCell(
+                currentSelection.startRow,
+                currentSelection.startCol
+            );
 
-        // Make sure the cell is visible
-        this.ensureCellVisible(newRow, newCol);
+            // Make sure the cell is visible
+            this.ensureCellVisible(
+                currentSelection.startRow,
+                currentSelection.startCol
+            );
+        }
     }
-
     private handleShiftKeys(event: KeyboardEvent, selection: Selection): void {
+        // Handle Ctrl+Shift combinations for extending selection to data edges
+        if (event.ctrlKey) {
+            const currentRow = selection.endRow;
+            const currentCol = selection.endCol;
+
+            switch (event.key) {
+                case "ArrowRight":
+                    event.preventDefault();
+                    const targetColRight = this.findNextDataEdge(
+                        currentRow,
+                        currentCol,
+                        "right"
+                    );
+                    selection.extend(currentRow, targetColRight);
+                    this.grid.clearHeaderSelections();
+                    this.highlightHeadersForSelection();
+                    this.ensureCellVisible(currentRow, targetColRight);
+                    this.renderer.render();
+                    this.updateSelectionStats();
+                    break;
+                case "ArrowLeft":
+                    event.preventDefault();
+                    const targetColLeft = this.findNextDataEdge(
+                        currentRow,
+                        currentCol,
+                        "left"
+                    );
+                    selection.extend(currentRow, targetColLeft);
+                    this.grid.clearHeaderSelections();
+                    this.highlightHeadersForSelection();
+                    this.ensureCellVisible(currentRow, targetColLeft);
+                    this.renderer.render();
+                    this.updateSelectionStats();
+                    break;
+                case "ArrowUp":
+                    event.preventDefault();
+                    const targetRowUp = this.findNextDataEdge(
+                        currentRow,
+                        currentCol,
+                        "up"
+                    );
+                    selection.extend(targetRowUp, currentCol);
+                    this.grid.clearHeaderSelections();
+                    this.highlightHeadersForSelection();
+                    this.ensureCellVisible(targetRowUp, currentCol);
+                    this.renderer.render();
+                    this.updateSelectionStats();
+                    break;
+                case "ArrowDown":
+                    event.preventDefault();
+                    const targetRowDown = this.findNextDataEdge(
+                        currentRow,
+                        currentCol,
+                        "down"
+                    );
+                    selection.extend(targetRowDown, currentCol);
+                    this.grid.clearHeaderSelections();
+                    this.highlightHeadersForSelection();
+                    this.ensureCellVisible(targetRowDown, currentCol);
+                    this.renderer.render();
+                    this.updateSelectionStats();
+                    break;
+                case "Home":
+                    event.preventDefault();
+                    selection.extend(currentRow, 0);
+                    this.grid.clearHeaderSelections();
+                    this.highlightHeadersForSelection();
+                    this.ensureCellVisible(currentRow, 0);
+                    this.renderer.render();
+                    this.updateSelectionStats();
+                    break;
+                case "End":
+                    event.preventDefault();
+                    const lastCol = this.findLastUsedColumn(currentRow);
+                    selection.extend(currentRow, lastCol);
+                    this.grid.clearHeaderSelections();
+                    this.highlightHeadersForSelection();
+                    this.ensureCellVisible(currentRow, lastCol);
+                    this.renderer.render();
+                    this.updateSelectionStats();
+                    break;
+            }
+            return;
+        }
+
+        // Regular Shift key combinations (without Ctrl)
         switch (event.key) {
             case "Tab":
                 event.preventDefault();
@@ -734,9 +828,27 @@ export class EventHandler implements IHandlerContext {
                 this.renderer.render();
                 this.updateSelectionStats();
                 break;
+            case "Home":
+                event.preventDefault();
+                selection.extend(selection.endRow, 0);
+                this.grid.clearHeaderSelections();
+                this.highlightHeadersForSelection();
+                this.ensureCellVisible(selection.endRow, 0);
+                this.renderer.render();
+                this.updateSelectionStats();
+                break;
+            case "End":
+                event.preventDefault();
+                const lastUsedCol = this.findLastUsedColumn(selection.endRow);
+                selection.extend(selection.endRow, lastUsedCol);
+                this.grid.clearHeaderSelections();
+                this.highlightHeadersForSelection();
+                this.ensureCellVisible(selection.endRow, lastUsedCol);
+                this.renderer.render();
+                this.updateSelectionStats();
+                break;
         }
     }
-
     private handleCtrlKeys(
         event: KeyboardEvent,
         selection: Selection,
@@ -755,31 +867,72 @@ export class EventHandler implements IHandlerContext {
                 break;
             case "ArrowRight":
                 event.preventDefault();
+                const targetColRight = this.findNextDataEdge(
+                    newRow,
+                    newCol,
+                    "right"
+                );
                 this.grid.clearAllSelections();
-                selection.start(newRow, this.grid.getMaxCols() - 1);
-                this.renderer.render();
-                this.updateSelectionStats();
+                selection.start(newRow, targetColRight);
+                this.handleSelectionAfterKeyDown(
+                    selection,
+                    newRow,
+                    targetColRight
+                );
                 break;
             case "ArrowLeft":
                 event.preventDefault();
+                const targetColLeft = this.findNextDataEdge(
+                    newRow,
+                    newCol,
+                    "left"
+                );
                 this.grid.clearAllSelections();
-                selection.start(newRow, 0);
-                this.renderer.render();
-                this.updateSelectionStats();
+                selection.start(newRow, targetColLeft);
+                this.handleSelectionAfterKeyDown(
+                    selection,
+                    newRow,
+                    targetColLeft
+                );
                 break;
             case "ArrowUp":
                 event.preventDefault();
+                const targetRowUp = this.findNextDataEdge(newRow, newCol, "up");
                 this.grid.clearAllSelections();
-                selection.start(0, newCol);
-                this.renderer.render();
-                this.updateSelectionStats();
+                selection.start(targetRowUp, newCol);
+                this.handleSelectionAfterKeyDown(
+                    selection,
+                    targetRowUp,
+                    newCol
+                );
                 break;
             case "ArrowDown":
                 event.preventDefault();
+                const targetRowDown = this.findNextDataEdge(
+                    newRow,
+                    newCol,
+                    "down"
+                );
                 this.grid.clearAllSelections();
-                selection.start(this.grid.getMaxRows() - 1, newCol);
-                this.renderer.render();
-                this.updateSelectionStats();
+                selection.start(targetRowDown, newCol);
+                this.handleSelectionAfterKeyDown(
+                    selection,
+                    targetRowDown,
+                    newCol
+                );
+                break;
+            case "Home":
+                event.preventDefault();
+                this.grid.clearAllSelections();
+                selection.start(newRow, 0);
+                this.handleSelectionAfterKeyDown(selection, newRow, 0);
+                break;
+            case "End":
+                event.preventDefault();
+                const lastCol = this.findLastUsedColumn(newRow);
+                this.grid.clearAllSelections();
+                selection.start(newRow, lastCol);
+                this.handleSelectionAfterKeyDown(selection, newRow, lastCol);
                 break;
             case "Enter":
                 event.preventDefault();
@@ -804,7 +957,6 @@ export class EventHandler implements IHandlerContext {
                 break;
         }
     }
-
     private handleRegularKeys(
         event: KeyboardEvent,
         selection: Selection,
@@ -830,6 +982,26 @@ export class EventHandler implements IHandlerContext {
             case "ArrowRight":
                 event.preventDefault();
                 newCol = Math.min(this.grid.getMaxCols() - 1, newCol + 1);
+                this.handleSelectionAfterKeyDown(selection, newRow, newCol);
+                break;
+            case "Home":
+                event.preventDefault();
+                newCol = 0;
+                this.handleSelectionAfterKeyDown(selection, newRow, newCol);
+                break;
+            case "End":
+                event.preventDefault();
+                newCol = this.findLastUsedColumn(newRow);
+                this.handleSelectionAfterKeyDown(selection, newRow, newCol);
+                break;
+            case "PageUp":
+                event.preventDefault();
+                newRow = Math.max(0, newRow - 10); // Move up 10 rows
+                this.handleSelectionAfterKeyDown(selection, newRow, newCol);
+                break;
+            case "PageDown":
+                event.preventDefault();
+                newRow = Math.min(this.grid.getMaxRows() - 1, newRow + 10); // Move down 10 rows
                 this.handleSelectionAfterKeyDown(selection, newRow, newCol);
                 break;
             case "Enter":
@@ -1502,10 +1674,161 @@ export class EventHandler implements IHandlerContext {
         if (numericValues.length === 0) return 0;
         return Math.max(...numericValues);
     }
-
     private calculateCount(cells: any[]): number {
         return cells
             .map((cell) => cell.getNumericValue())
             .filter((value) => value !== null).length;
+    }
+
+    /**
+     * Finds the next data edge in the specified direction (Excel-like Ctrl+Arrow behavior)
+     * @param row - Current row
+     * @param col - Current column
+     * @param direction - Direction to search
+     * @returns The target row or column index
+     */
+    private findNextDataEdge(
+        row: number,
+        col: number,
+        direction: "up" | "down" | "left" | "right"
+    ): number {
+        const maxRows = this.grid.getMaxRows();
+        const maxCols = this.grid.getMaxCols();
+
+        switch (direction) {
+            case "right":
+                // If current cell is empty, find first non-empty cell
+                if (this.isCellEmpty(row, col)) {
+                    for (let c = col + 1; c < maxCols; c++) {
+                        if (!this.isCellEmpty(row, c)) {
+                            return c;
+                        }
+                    }
+                    return maxCols - 1; // Go to last column if no data found
+                } else {
+                    // If current cell has data, find the end of this data region
+                    let c = col;
+                    while (c + 1 < maxCols && !this.isCellEmpty(row, c + 1)) {
+                        c++;
+                    }
+                    // If we're at the end of data, look for next data region
+                    if (c < maxCols - 1) {
+                        for (let nextC = c + 1; nextC < maxCols; nextC++) {
+                            if (!this.isCellEmpty(row, nextC)) {
+                                return nextC;
+                            }
+                        }
+                    }
+                    return c;
+                }
+
+            case "left":
+                // If current cell is empty, find first non-empty cell to the left
+                if (this.isCellEmpty(row, col)) {
+                    for (let c = col - 1; c >= 0; c--) {
+                        if (!this.isCellEmpty(row, c)) {
+                            return c;
+                        }
+                    }
+                    return 0; // Go to first column if no data found
+                } else {
+                    // If current cell has data, find the start of this data region
+                    let c = col;
+                    while (c - 1 >= 0 && !this.isCellEmpty(row, c - 1)) {
+                        c--;
+                    }
+                    // If we're at the start of data, look for previous data region
+                    if (c > 0) {
+                        for (let prevC = c - 1; prevC >= 0; prevC--) {
+                            if (!this.isCellEmpty(row, prevC)) {
+                                return prevC;
+                            }
+                        }
+                    }
+                    return c;
+                }
+
+            case "down":
+                // If current cell is empty, find first non-empty cell below
+                if (this.isCellEmpty(row, col)) {
+                    for (let r = row + 1; r < maxRows; r++) {
+                        if (!this.isCellEmpty(r, col)) {
+                            return r;
+                        }
+                    }
+                    return maxRows - 1; // Go to last row if no data found
+                } else {
+                    // If current cell has data, find the end of this data region
+                    let r = row;
+                    while (r + 1 < maxRows && !this.isCellEmpty(r + 1, col)) {
+                        r++;
+                    }
+                    // If we're at the end of data, look for next data region
+                    if (r < maxRows - 1) {
+                        for (let nextR = r + 1; nextR < maxRows; nextR++) {
+                            if (!this.isCellEmpty(nextR, col)) {
+                                return nextR;
+                            }
+                        }
+                    }
+                    return r;
+                }
+
+            case "up":
+                // If current cell is empty, find first non-empty cell above
+                if (this.isCellEmpty(row, col)) {
+                    for (let r = row - 1; r >= 0; r--) {
+                        if (!this.isCellEmpty(r, col)) {
+                            return r;
+                        }
+                    }
+                    return 0; // Go to first row if no data found
+                } else {
+                    // If current cell has data, find the start of this data region
+                    let r = row;
+                    while (r - 1 >= 0 && !this.isCellEmpty(r - 1, col)) {
+                        r--;
+                    }
+                    // If we're at the start of data, look for previous data region
+                    if (r > 0) {
+                        for (let prevR = r - 1; prevR >= 0; prevR--) {
+                            if (!this.isCellEmpty(prevR, col)) {
+                                return prevR;
+                            }
+                        }
+                    }
+                    return r;
+                }
+
+            default:
+                return direction === "up" || direction === "down" ? row : col;
+        }
+    }
+
+    /**
+     * Checks if a cell is empty (Excel considers empty string, null, undefined as empty)
+     * @param row - Row index
+     * @param col - Column index
+     * @returns True if cell is empty
+     */
+    private isCellEmpty(row: number, col: number): boolean {
+        const cell = this.grid.getCell(row, col);
+        const value = cell.getDisplayValue();
+        return value === "" || value === null || value === undefined;
+    }
+
+    /**
+     * Finds the last used column in a row (for Ctrl+End behavior)
+     * @param row - Row to search
+     * @returns Last column with data, or 0 if no data
+     */
+    private findLastUsedColumn(row: number): number {
+        const maxCols = this.grid.getMaxCols();
+        for (let col = maxCols - 1; col >= 0; col--) {
+            if (!this.isCellEmpty(row, col)) {
+                return col;
+            }
+        }
+        return 0;
     }
 }
