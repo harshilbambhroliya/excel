@@ -1334,12 +1334,6 @@ export class Renderer {
                     bottomHeight
                 );
             }
-            // Don't apply any overlay to first cell so text remains visible
-            // Previous code was using rgba(255, 255, 255, 0) which makes content invisible
-            // We simply skip filling this rect to keep the cell content visible
-        } else {
-            // For single-cell selections, we don't apply any highlight background
-            // This keeps the cell white as required
         }
 
         // Draw selection border with a thicker and more visible style
