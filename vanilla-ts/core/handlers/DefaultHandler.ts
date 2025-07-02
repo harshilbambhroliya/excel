@@ -53,7 +53,6 @@ export class DefaultHandler extends BaseHandler {
             event.offsetY
         );
         if (cellPos) {
-            this.renderer.dottedLineAcrossSelection = false;
             this.context.finishCellEdit(); // Clear all selections (cell and header)
             this.grid.clearAllSelections(); // Clear any origin cell highlighting and formula range selection
             this.renderer.clearOriginCell();
@@ -363,7 +362,13 @@ export class DefaultHandler extends BaseHandler {
         document.addEventListener("mousemove", this.documentMouseMoveHandler);
         document.addEventListener("mouseup", this.documentMouseUpHandler);
     }
-
+    /**
+     * Handles global mouse move events when the mouse is outside the canvas
+     *  - Updates global mouse position
+     *  - Checks if mouse is over row headers or outside canvas bounds
+     *  - Handles auto-scrolling and selection extension
+     * @param event - The mouse event
+     */
     private handleGlobalMouseMove(event: MouseEvent): void {
         if (!this.isMouseDown) return;
 

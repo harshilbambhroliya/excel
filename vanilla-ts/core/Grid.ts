@@ -354,6 +354,21 @@ export class Grid {
     }
 
     /**
+     * Loads Excel data into the grid
+     * @param {any[]} data The Excel data to load
+     */
+    public loadExcelData(data: any[]): void {
+        this.dataManager.loadExcelData(data);
+
+        // After loading data, update the grid dimensions to match the data size
+        this.updateGridDimensions();
+
+        console.log(
+            `Grid updated with Excel data: ${this.rows.length} rows and ${this.columns.length} columns`
+        );
+    }
+
+    /**
      * Reinitializes rows and columns based on current DataManager dimensions.
      * This should be called after data is loaded.
      */

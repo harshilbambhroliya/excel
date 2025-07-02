@@ -5,6 +5,7 @@ import { EventHandler } from "./core/EventHandler.js";
 import { CommandManager } from "./commands/Command.js";
 import { DataGenerator } from "./utils/DataGenerator.js";
 import { ScrollbarManager } from "./core/ScrollbarManager.js";
+import { ExcelFileHandler } from "./utils/ExcelFileHandler.js";
 
 /**
  * Main application class for Excel-like spreadsheet app
@@ -105,6 +106,9 @@ class ExcelApp {
      */
     private setupUI(): void {
         const loadDataBtn = document.getElementById("loadData");
+        const excelFileInput = document.getElementById(
+            "excelFileInput"
+        ) as HTMLInputElement;
         const undoBtn = document.getElementById("undo");
         const redoBtn = document.getElementById("redo");
         const clearBtn = document.getElementById("clear");
@@ -129,6 +133,13 @@ class ExcelApp {
         if (loadDataBtn) {
             loadDataBtn.addEventListener("click", () => {
                 this.loadSampleData();
+            });
+        }
+
+        // Excel file input handler
+        if (excelFileInput) {
+            excelFileInput.addEventListener("change", (event) => {
+                this.handleExcelFileUpload(event);
             });
         }
 
@@ -334,6 +345,93 @@ class ExcelApp {
             console.log(`Data loaded in ${(endTime - startTime).toFixed(2)}ms`);
         } catch (error) {
             console.error("Error loading sample data:", error);
+        }
+    }
+
+    /**
+     * Handles Excel file upload and processing
+     * @param event - File input change event
+     */
+    private async handleExcelFileUpload(event: Event): Promise<void> {
+        const input = event.target as HTMLInputElement;
+        const file = input.files?.[0];
+
+        if (!file) {
+            return;
+        }
+
+        try {
+            // Validate file type
+            if (!ExcelFileHandler.isValidExcelFile(file)) {
+                alert(
+                    "Please select a valid Excel file (.xlsx, .xls, .xlsm, .xlsb)"
+                );
+                input.value = ""; // Clear the input
+                return;
+            }
+
+            // Get file info for user feedback
+            const fileInfo = ExcelFileHandler.getFileInfo(file);
+            console.log(
+                `Loading Excel file: ${fileInfo.name} (${fileInfo.size})`
+            );
+
+            // Show loading indicator (you might want to add a proper loading UI)
+            const loadDataBtn = document.getElementById("loadData");
+            const originalText = loadDataBtn?.textContent || "Load Sample Data";
+            if (loadDataBtn) {
+                loadDataBtn.textContent = "Loading Excel file...";
+                loadDataBtn.setAttribute("disabled", "true");
+            }
+
+            // Read and process the Excel file
+            const startTime = performance.now();
+            const excelData = await ExcelFileHandler.readExcelFile(file);
+
+            console.log(`Excel file processed: ${excelData.length} rows`);
+
+            // Load data into the grid
+            this.grid!.loadExcelData(excelData);
+            console.log(
+                `Excel data loaded into grid: ${this.grid!.getCurrentRows()} rows, ${this.grid!.getCurrentCols()} columns`
+            );
+
+            // Force the renderer to recalculate positions
+            this.renderer!.recalculatePositions();
+
+            // Update scrollbars to reflect the new data size
+            this.renderer!.refreshScrollbars();
+
+            // Render the grid with the new data
+            this.renderer!.render();
+
+            const endTime = performance.now();
+            console.log(
+                `Excel file loaded in ${(endTime - startTime).toFixed(2)}ms`
+            );
+
+            // Show success message
+            alert(
+                `Successfully loaded Excel file: ${fileInfo.name}\n${excelData.length} rows loaded`
+            );
+        } catch (error) {
+            console.error("Error loading Excel file:", error);
+            const errorMessage =
+                error instanceof Error
+                    ? error.message
+                    : "Unknown error occurred";
+            alert(`Error loading Excel file: ${errorMessage}`);
+        } finally {
+            // Restore button state
+            const loadDataBtn = document.getElementById("loadData");
+            const originalText = loadDataBtn?.textContent || "Load Sample Data";
+            if (loadDataBtn) {
+                loadDataBtn.textContent = originalText;
+                loadDataBtn.removeAttribute("disabled");
+            }
+
+            // Clear the file input so the same file can be selected again
+            input.value = "";
         }
     }
 

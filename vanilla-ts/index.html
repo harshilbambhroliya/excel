@@ -29,7 +29,11 @@
         <div class="toolbar">
             <!-- Data operations -->
             <div class="button-group data-group">
-                <button id="loadData">Load Data</button>
+                <button id="loadData">Load Sample Data</button>
+                <label for="excelFileInput" class="file-input-label">
+                    <i class="fa-solid fa-file-excel"></i> Open Excel File
+                </label>
+                <input type="file" id="excelFileInput" accept=".xlsx,.xls,.xlsm,.xlsb" style="display: none;">
             </div>
 
             <!-- Edit operations -->

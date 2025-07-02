@@ -1034,6 +1034,12 @@ export class EventHandler implements IHandlerContext {
                 this.renderer.render();
                 this.updateSelectionStats();
                 break;
+            case "Escape":
+                event.preventDefault();
+                // Clear copy selection when Escape is pressed (Excel behavior)
+                this.renderer.clearCopiedSelection();
+                this.renderer.render();
+                break;
         }
     }
 
@@ -1076,7 +1082,7 @@ export class EventHandler implements IHandlerContext {
         event?.preventDefault();
         this.grid.clearAllSelections();
         selection.start(newRow, newCol);
-        this.renderer.dottedLineAcrossSelection = false;
+        this.renderer.clearCopiedSelection();
         navigator.clipboard
             .readText()
             .then((text) => {

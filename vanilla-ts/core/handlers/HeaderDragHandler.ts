@@ -155,7 +155,12 @@ export class HeaderDragHandler extends BaseHandler {
 
     getCursor(x: number, y: number): string {
         return "cell";
-    } // Auto-scrolling methods
+    }
+    /**
+     * Handles auto-scrolling when dragging headers
+     * @param mouseX - Mouse X position
+     * @param mouseY - Mouse Y position
+     */
     private handleAutoScroll(mouseX: number, mouseY: number): void {
         const canvasWidth = this.canvas.clientWidth;
         const canvasHeight = this.canvas.clientHeight;
@@ -211,6 +216,10 @@ export class HeaderDragHandler extends BaseHandler {
         }
     }
 
+    /**
+     * Starts the auto-scrolling animation
+     * Uses requestAnimationFrame for smoother performance
+     */
     private startAutoScroll(): void {
         if (this.autoScrollTimer) return;
 

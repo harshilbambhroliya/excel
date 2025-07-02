@@ -27,11 +27,11 @@ export interface IRect {
 }
 
 export interface IDataRecord {
-    id: string;
+    id: number;
     firstName: string;
     lastName: string;
-    age: string;
-    salary: string;
+    age: number;
+    salary: number;
 }
 
 export interface ICommand {

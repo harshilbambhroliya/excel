@@ -1,6 +1,6 @@
 // src/core/DataManager.ts
-import { Cell } from '../models/Cell.js';
-import { IDataRecord } from '../types/interfaces.js';
+import { Cell } from "../models/Cell.js";
+import { IDataRecord } from "../types/interfaces.js";
 
 /**
  * Manages the data in the grid
@@ -11,7 +11,7 @@ export class DataManager {
      */
     private data: Map<string, Cell> = new Map();
 
-    /** 
+    /**
      * The maximum number of rows
      */
     private maxRows: number = 1000000;
@@ -81,17 +81,17 @@ export class DataManager {
      */
     public getCell(row: number, col: number): Cell {
         if (row < 0 || row >= this.maxRows || col < 0 || col >= this.maxCols) {
-            throw new Error('Cell position out of bounds');
+            throw new Error("Cell position out of bounds");
         }
 
         const key = this.getCellKey(row, col);
         let cell = this.data.get(key);
-        
+
         if (!cell) {
             cell = new Cell();
             this.data.set(key, cell);
         }
-        
+
         return cell;
     }
 
@@ -103,7 +103,7 @@ export class DataManager {
      */
     public setCell(row: number, col: number, value: any): void {
         const cell = this.getCell(row, col);
-        if(row == 0){
+        if (row == 0) {
             console.log("cell", cell);
         }
         cell.setValue(value);
@@ -116,35 +116,30 @@ export class DataManager {
     public loadData(records: IDataRecord[]): void {
         // Clear existing data
         this.data.clear();
-        
-        // Get the actual number of rows from the data, with a minimum of initialRows
-        // this.maxRows = Math.max(records.length + 1, this.initialRows); // +1 for header row
-        
-        // Determine the number of columns based on the record structure
-        // For our standard IDataRecord, we have 5 columns: ID, First Name, Last Name, Age, Salary
+
         let columnsInData = 50;
-        
+
         // If we have sample data, inspect the first record to count properties
         if (records.length > 0) {
             const firstRecord = records[0];
             const propertyCount = Object.keys(firstRecord).length;
-            
+
             // Only update if we detected more columns than our default
             if (propertyCount > columnsInData) {
                 columnsInData = propertyCount;
                 console.log(`Detected ${columnsInData} columns in data`);
             }
         }
-        
+
         // Set max columns with a minimum of initialCols
         this.maxCols = Math.max(columnsInData, this.initialCols);
 
         // Set standard headers
-        this.setCell(0, 0, 'ID');
-        this.setCell(0, 1, 'First Name');
-        this.setCell(0, 2, 'Last Name');
-        this.setCell(0, 3, 'Age');
-        this.setCell(0, 4, 'Salary');
+        this.setCell(0, 0, "ID");
+        this.setCell(0, 1, "First Name");
+        this.setCell(0, 2, "Last Name");
+        this.setCell(0, 3, "Age");
+        this.setCell(0, 4, "Salary");
 
         // Load records starting from row 1
         records.forEach((record, index) => {
@@ -156,16 +151,79 @@ export class DataManager {
             this.setCell(row, 4, record.salary);
         });
 
-        const rowBuffer = 20; 
-        const colBuffer = 5; 
-        
+        // Add buffer rows and columns
+        // We add a buffer to ensure we have some extra space for user interaction
+        const rowBuffer = 20;
+        const colBuffer = 5;
+
         // Set current rows to the data length plus header and buffer, but not exceeding maxRows
-        this.currentRows = Math.min(records.length + 1 + rowBuffer, this.maxRows);
-        
+        this.currentRows = Math.min(
+            records.length + 1 + rowBuffer,
+            this.maxRows
+        );
+
         // Set current columns to the number of columns in the data plus buffer, but not exceeding maxCols
         this.currentCols = Math.min(columnsInData + colBuffer, this.maxCols);
-        
-        console.log(`Data loaded: Rows set to ${this.currentRows}, Columns set to ${this.currentCols}`);
+
+        console.log(
+            `Data loaded: Rows set to ${this.currentRows}, Columns set to ${this.currentCols}`
+        );
+    }
+
+    /**
+     * Loads Excel data with dynamic column structure
+     * @param records - The Excel records
+     */
+    public loadExcelData(records: any[]): void {
+        // Clear existing data
+        this.data.clear();
+
+        if (records.length === 0) {
+            this.initializeEmptyGrid();
+            return;
+        }
+
+        // Find maximum number of columns across all records
+        let maxColumns = 0;
+        records.forEach((record) => {
+            const colCount = Object.keys(record).filter((key) =>
+                key.startsWith("col_")
+            ).length;
+            maxColumns = Math.max(maxColumns, colCount);
+        });
+
+        // Ensure we have at least a minimum number of columns
+        maxColumns = Math.max(maxColumns, 10);
+
+        // Set max columns with buffer
+        const colBuffer = 10;
+        this.maxCols = Math.max(maxColumns + colBuffer, this.initialCols);
+
+        // Load all records directly (Excel data includes headers if present)
+        records.forEach((record, index) => {
+            const row = index;
+
+            // Load data for each column
+            for (let col = 0; col < maxColumns; col++) {
+                const colKey = `col_${col}`;
+                const value = record[colKey] || "";
+                this.setCell(row, col, value);
+            }
+        });
+
+        // Add buffer rows
+        const rowBuffer = 50;
+
+        // Set current rows to the data length plus buffer, but not exceeding maxRows
+        this.currentRows = Math.min(records.length + rowBuffer, this.maxRows);
+
+        // Set current columns
+        this.currentCols = Math.min(maxColumns + colBuffer, this.maxCols);
+
+        console.log(
+            `Excel data loaded: ${records.length} rows, ${maxColumns} columns. ` +
+                `Grid set to ${this.currentRows} rows, ${this.currentCols} columns`
+        );
     }
 
     /**
@@ -176,17 +234,35 @@ export class DataManager {
      * @param endCol - The ending column index
      * @returns The cells in range
      */
-    public getCellsInRange(startRow: number, startCol: number, endRow: number, endCol: number): Cell[] {
+    public getCellsInRange(
+        startRow: number,
+        startCol: number,
+        endRow: number,
+        endCol: number
+    ): Cell[] {
         const cells: Cell[] = [];
-        
-        for (let row = Math.min(startRow, endRow); row <= Math.max(startRow, endRow); row++) {
-            for (let col = Math.min(startCol, endCol); col <= Math.max(startCol, endCol); col++) {
-                if (row >= 0 && row < this.maxRows && col >= 0 && col < this.maxCols) {
+
+        for (
+            let row = Math.min(startRow, endRow);
+            row <= Math.max(startRow, endRow);
+            row++
+        ) {
+            for (
+                let col = Math.min(startCol, endCol);
+                col <= Math.max(startCol, endCol);
+                col++
+            ) {
+                if (
+                    row >= 0 &&
+                    row < this.maxRows &&
+                    col >= 0 &&
+                    col < this.maxCols
+                ) {
                     cells.push(this.getCell(row, col));
                 }
             }
         }
-        
+
         return cells;
     }
 
@@ -229,13 +305,13 @@ export class DataManager {
      */
     public expandRows(amount: number): boolean {
         const newRowCount = Math.min(this.currentRows + amount, this.maxRows);
-        
+
         if (newRowCount > this.currentRows) {
             this.currentRows = newRowCount;
             console.log(`Expanded to ${this.currentRows} rows`);
             return true;
         }
-        
+
         return false;
     }
 
@@ -246,13 +322,13 @@ export class DataManager {
      */
     public expandColumns(amount: number): boolean {
         const newColCount = Math.min(this.currentCols + amount, this.maxCols);
-        
+
         if (newColCount > this.currentCols) {
             this.currentCols = newColCount;
             console.log(`Expanded to ${this.currentCols} columns`);
             return true;
         }
-        
+
         return false;
     }
 
@@ -268,7 +344,7 @@ export class DataManager {
 
         // If we're already at the maximum row capacity, we can't add more
         if (this.currentRows >= this.maxRows) {
-            console.error('Cannot insert row: Maximum row limit reached');
+            console.error("Cannot insert row: Maximum row limit reached");
             return false;
         }
 
@@ -278,8 +354,8 @@ export class DataManager {
 
         // Copy data, shifting rows as needed
         for (const [key, cell] of oldData.entries()) {
-            const [row, col] = key.split('-').map(Number);
-            
+            const [row, col] = key.split("-").map(Number);
+
             if (row >= rowIndex) {
                 // This is a row that needs to be shifted down
                 this.data.set(this.getCellKey(row + 1, col), cell);
@@ -306,7 +382,7 @@ export class DataManager {
 
         // Don't allow removing all rows
         if (this.currentRows <= 1) {
-            console.error('Cannot remove row: At least one row must remain');
+            console.error("Cannot remove row: At least one row must remain");
             return false;
         }
 
@@ -316,8 +392,8 @@ export class DataManager {
 
         // Copy data, shifting rows as needed
         for (const [key, cell] of oldData.entries()) {
-            const [row, col] = key.split('-').map(Number);
-            
+            const [row, col] = key.split("-").map(Number);
+
             if (row === rowIndex) {
                 // Skip this row as it's being removed
                 continue;
@@ -347,7 +423,7 @@ export class DataManager {
 
         // If we're already at the maximum column capacity, we can't add more
         if (this.currentCols >= this.maxCols) {
-            console.error('Cannot insert column: Maximum column limit reached');
+            console.error("Cannot insert column: Maximum column limit reached");
             return false;
         }
 
@@ -357,8 +433,8 @@ export class DataManager {
 
         // Copy data, shifting columns as needed
         for (const [key, cell] of oldData.entries()) {
-            const [row, col] = key.split('-').map(Number);
-            
+            const [row, col] = key.split("-").map(Number);
+
             if (col >= colIndex) {
                 // This is a column that needs to be shifted right
                 this.data.set(this.getCellKey(row, col + 1), cell);
@@ -385,7 +461,9 @@ export class DataManager {
 
         // Don't allow removing all columns
         if (this.currentCols <= 1) {
-            console.error('Cannot remove column: At least one column must remain');
+            console.error(
+                "Cannot remove column: At least one column must remain"
+            );
             return false;
         }
 
@@ -395,8 +473,8 @@ export class DataManager {
 
         // Copy data, shifting columns as needed
         for (const [key, cell] of oldData.entries()) {
-            const [row, col] = key.split('-').map(Number);
-            
+            const [row, col] = key.split("-").map(Number);
+
             if (col === colIndex) {
                 // Skip this column as it's being removed
                 continue;

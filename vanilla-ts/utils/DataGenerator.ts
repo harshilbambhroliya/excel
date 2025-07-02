@@ -1,5 +1,5 @@
 // src/utils/DataGenerator.ts
-import { IDataRecord } from '../types/interfaces.js';
+import { IDataRecord } from "../types/interfaces.js";
 
 /**
  * Utility class for generating sample data records
@@ -7,19 +7,80 @@ import { IDataRecord } from '../types/interfaces.js';
 export class DataGenerator {
     /** @type {string[]} List of sample first names to use in generated data */
     private static readonly FIRST_NAMES = [
-        'John', 'Jane', 'Bob', 'Alice', 'Charlie', 'Diana', 'Edward', 'Fiona',
-        'George', 'Helen', 'Ian', 'Julia', 'Kevin', 'Laura', 'Michael', 'Nancy',
-        'Oliver', 'Penny', 'Quinn', 'Rachel', 'Steve', 'Tina', 'Ulrich', 'Vera',
-        'William', 'Xandra', 'Yves', 'Zoe', 'Adam', 'Beth', 'Carl', 'Donna',
-        'Eric', 'Faith', 'Gary', 'Hope', 'Ivan', 'Jade', 'Kyle', 'Luna'
+        "John",
+        "Jane",
+        "Bob",
+        "Alice",
+        "Charlie",
+        "Diana",
+        "Edward",
+        "Fiona",
+        "George",
+        "Helen",
+        "Ian",
+        "Julia",
+        "Kevin",
+        "Laura",
+        "Michael",
+        "Nancy",
+        "Oliver",
+        "Penny",
+        "Quinn",
+        "Rachel",
+        "Steve",
+        "Tina",
+        "Ulrich",
+        "Vera",
+        "William",
+        "Xandra",
+        "Yves",
+        "Zoe",
+        "Adam",
+        "Beth",
+        "Carl",
+        "Donna",
+        "Eric",
+        "Faith",
+        "Gary",
+        "Hope",
+        "Ivan",
+        "Jade",
+        "Kyle",
+        "Luna",
     ];
 
     /** @type {string[]} List of sample last names to use in generated data */
     private static readonly LAST_NAMES = [
-        'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis',
-        'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson',
-        'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin', 'Lee', 'Perez', 'Thompson',
-        'White', 'Harris', 'Sanchez', 'Clark', 'Ramirez', 'Lewis', 'Robinson'
+        "Smith",
+        "Johnson",
+        "Williams",
+        "Brown",
+        "Jones",
+        "Garcia",
+        "Miller",
+        "Davis",
+        "Rodriguez",
+        "Martinez",
+        "Hernandez",
+        "Lopez",
+        "Gonzalez",
+        "Wilson",
+        "Anderson",
+        "Thomas",
+        "Taylor",
+        "Moore",
+        "Jackson",
+        "Martin",
+        "Lee",
+        "Perez",
+        "Thompson",
+        "White",
+        "Harris",
+        "Sanchez",
+        "Clark",
+        "Ramirez",
+        "Lewis",
+        "Robinson",
     ];
 
     /**
@@ -31,11 +92,11 @@ export class DataGenerator {
         const records: IDataRecord[] = [];
         for (let i = 0; i < Math.min(count, 1048576); i++) {
             records.push({
-                id: i.toString(),
+                id: i,
                 firstName: this.getRandomFirstName(),
                 lastName: this.getRandomLastName(),
-                age: this.getRandomAge().toString(),
-                salary: `${this.getRandomSalary().toString()}`
+                age: this.getRandomAge(),
+                salary: this.getRandomSalary(),
             });
         }
         return records;
@@ -46,7 +107,9 @@ export class DataGenerator {
      * @returns {string} A random first name
      */
     private static getRandomFirstName(): string {
-        return this.FIRST_NAMES[Math.floor(Math.random() * this.FIRST_NAMES.length)];
+        return this.FIRST_NAMES[
+            Math.floor(Math.random() * this.FIRST_NAMES.length)
+        ];
     }
 
     /**
@@ -54,7 +117,9 @@ export class DataGenerator {
      * @returns {string} A random last name
      */
     private static getRandomLastName(): string {
-        return this.LAST_NAMES[Math.floor(Math.random() * this.LAST_NAMES.length)];
+        return this.LAST_NAMES[
+            Math.floor(Math.random() * this.LAST_NAMES.length)
+        ];
     }
 
     /**

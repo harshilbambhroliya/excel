@@ -68,6 +68,26 @@ export class Renderer {
     public dottedLineAcrossSelection: boolean = false;
 
     /**
+     * Bounds of the copied selection for animation
+     */
+    private copiedSelectionBounds: {
+        minCol: number;
+        maxCol: number;
+        minRow: number;
+        maxRow: number;
+    } | null = null;
+
+    /**
+     * Animation frame ID for marching ants
+     */
+    private marchingAntsAnimationId: number | null = null;
+
+    /**
+     * Animation offset for marching ants effect
+     */
+    private marchingAntsOffset: number = 0;
+
+    /**
      * Origin cell for dual selection (formula cell + range)
      */
     private originCell: { row: number; col: number } | null = null;
@@ -529,6 +549,9 @@ export class Renderer {
 
         // Finally, render the selection
         this.renderSelection();
+
+        // Render marching ants animation for copied cells
+        this.renderMarchingAntsBorder();
     }
 
     /**
@@ -1050,12 +1073,27 @@ export class Renderer {
                     // this.ctx.font = `${fontWeight} ${scaledFontSize}px Calibri`;
                     this.ctx.font = `${fontStyle} ${fontWeight} ${scaledFontSize}px Calibri`;
 
-                    // Apply proper padding based on zoom factor
-                    const paddingLeft = 6 * this.zoomFactor;
-                    const textX = xPos + paddingLeft;
+                    // Set text alignment based on cell type (right-align numbers)
+                    let textX: number;
                     const textY = yPos + scaledHeight / 2; // Vertically center in scaled cell
+
+                    if (cell.type === "number") {
+                        this.ctx.textAlign = "right";
+                        // For right-aligned text, position at right edge minus padding
+                        const paddingRight = 6 * this.zoomFactor;
+                        textX = xPos + scaledWidth - paddingRight;
+                    } else {
+                        this.ctx.textAlign = "left";
+                        // Apply proper padding based on zoom factor for left-aligned text
+                        const paddingLeft = 6 * this.zoomFactor;
+                        textX = xPos + paddingLeft;
+                    }
+
                     const metrics = this.ctx.measureText(displayValue);
                     // console.log(typeof textDecoration, textDecorationLine);
+
+                    // Render text with adjusted size and position
+                    this.ctx.fillText(displayValue, textX, textY);
 
                     if (textDecoration === "line-through") {
                         const strikeY = Math.floor(textY) + 0.5;
@@ -1078,8 +1116,6 @@ export class Renderer {
                         this.ctx.lineWidth = Math.max(1, scaledFontSize / 15);
                         this.ctx.stroke();
                     }
-                    // Render text with adjusted size and position
-                    this.ctx.fillText(displayValue, textX, textY);
 
                     this.ctx.restore();
                 }
@@ -1180,10 +1216,6 @@ export class Renderer {
     private renderSelection(): void {
         const selection = this.grid.getSelection();
         if (!selection.isActive) return;
-        if (this.dottedLineAcrossSelection) {
-            this.renderDottedLineAcrossSelection(selection);
-            return;
-        }
 
         const dimensions = this.grid.getDimensions();
 
@@ -1458,69 +1490,24 @@ export class Renderer {
             if (pos.row > maxRow) maxRow = pos.row;
         });
 
-        // Calculate positions with zoom factor
-        const startX =
-            dimensions.headerWidth +
-            (this.getColumnPosition(minCol) -
-                dimensions.headerWidth -
-                this.scrollX) *
-                this.zoomFactor;
-        const startY =
-            dimensions.headerHeight +
-            (this.getRowPosition(minRow) -
-                dimensions.headerHeight -
-                this.scrollY) *
-                this.zoomFactor;
-        const endX =
-            dimensions.headerWidth +
-            (this.getColumnPosition(maxCol + 1) -
-                dimensions.headerWidth -
-                this.scrollX) *
-                this.zoomFactor;
-        const endY =
-            dimensions.headerHeight +
-            (this.getRowPosition(maxRow + 1) -
-                dimensions.headerHeight -
-                this.scrollY) *
-                this.zoomFactor;
+        // Store selection bounds for animation
+        this.copiedSelectionBounds = {
+            minCol,
+            maxCol,
+            minRow,
+            maxRow,
+        };
 
-        // Ensure coordinates are valid
-        if (isNaN(startX) || isNaN(startY) || isNaN(endX) || isNaN(endY)) {
-            return;
-        }
+        // Start the marching ants animation
+        this.startMarchingAntsAnimation();
+    }
 
-        // Ensure the width and height are valid
-        const width = endX - startX;
-        const height = endY - startY;
-        if (width <= 0 || height <= 0) {
-            return;
-        }
-
-        // Save current context state
-        this.ctx.save();
-
-        // Draw rectangle around selection with dotted line
-        this.ctx.beginPath();
-        this.ctx.strokeStyle = "#217346"; // Excel green color
-        this.ctx.lineWidth = 2 / this.devicePixelRatio; // Thicker line
-        this.ctx.setLineDash([8, 4]); // Larger dashes for better visibility
-
-        // Align to pixel boundaries for crisp lines
-        const pixelAlignedX = Math.round(startX) + 0.5;
-        const pixelAlignedY = Math.round(startY) + 0.5;
-        const pixelAlignedWidth = Math.round(width);
-        const pixelAlignedHeight = Math.round(height);
-
-        this.ctx.rect(
-            pixelAlignedX,
-            pixelAlignedY,
-            pixelAlignedWidth,
-            pixelAlignedHeight
-        );
-        this.ctx.stroke();
-
-        // Restore context
-        this.ctx.restore();
+    /**
+     * Clears the copied selection and stops the marching ants animation
+     */
+    public clearCopiedSelection(): void {
+        this.dottedLineAcrossSelection = false;
+        this.stopMarchingAntsAnimation();
     }
 
     /**
@@ -2001,5 +1988,119 @@ export class Renderer {
      */
     public clearFormulaRangeSelection(): void {
         this.isFormulaRangeSelection = false;
+    }
+
+    /**
+     * Starts the marching ants animation for copied selection
+     */
+    private startMarchingAntsAnimation(): void {
+        if (this.marchingAntsAnimationId) {
+            cancelAnimationFrame(this.marchingAntsAnimationId);
+        }
+
+        const animate = () => {
+            this.marchingAntsOffset = (this.marchingAntsOffset + 0.5) % 12; // Move by 0.5 pixels each frame
+            this.render(); // Re-render with new offset
+            this.marchingAntsAnimationId = requestAnimationFrame(animate);
+        };
+
+        this.marchingAntsAnimationId = requestAnimationFrame(animate);
+    }
+
+    /**
+     * Stops the marching ants animation
+     */
+    public stopMarchingAntsAnimation(): void {
+        if (this.marchingAntsAnimationId) {
+            cancelAnimationFrame(this.marchingAntsAnimationId);
+            this.marchingAntsAnimationId = null;
+        }
+        this.copiedSelectionBounds = null;
+        this.dottedLineAcrossSelection = false;
+        this.marchingAntsOffset = 0;
+    }
+
+    /**
+     * Renders the marching ants border for copied selection
+     */
+    private renderMarchingAntsBorder(): void {
+        if (!this.copiedSelectionBounds || !this.dottedLineAcrossSelection) {
+            return;
+        }
+
+        const dimensions = this.grid.getDimensions();
+        const bounds = this.copiedSelectionBounds;
+
+        const startX =
+            dimensions.headerWidth +
+            (this.getColumnPosition(bounds.minCol) -
+                dimensions.headerWidth -
+                this.scrollX) *
+                this.zoomFactor;
+        const startY =
+            dimensions.headerHeight +
+            (this.getRowPosition(bounds.minRow) -
+                dimensions.headerHeight -
+                this.scrollY) *
+                this.zoomFactor;
+        const endX =
+            dimensions.headerWidth +
+            (this.getColumnPosition(bounds.maxCol + 1) -
+                dimensions.headerWidth -
+                this.scrollX) *
+                this.zoomFactor;
+        const endY =
+            dimensions.headerHeight +
+            (this.getRowPosition(bounds.maxRow + 1) -
+                dimensions.headerHeight -
+                this.scrollY) *
+                this.zoomFactor;
+
+        if (isNaN(startX) || isNaN(startY) || isNaN(endX) || isNaN(endY)) {
+            return;
+        }
+
+        const width = endX - startX;
+        const height = endY - startY;
+        if (width <= 0 || height <= 0) {
+            return;
+        }
+
+        const pixelAlignedX = Math.round(startX) + 0.5;
+        const pixelAlignedY = Math.round(startY) + 0.5;
+        const pixelAlignedWidth = Math.round(width);
+        const pixelAlignedHeight = Math.round(height);
+
+        // White border (for the "gap")
+        this.ctx.save();
+        this.ctx.strokeStyle = "#ffffff";
+        this.ctx.lineWidth = 2 / this.devicePixelRatio;
+        this.ctx.setLineDash([6, 6]);
+        this.ctx.lineDashOffset = -this.marchingAntsOffset;
+        this.ctx.beginPath();
+        this.ctx.rect(
+            pixelAlignedX,
+            pixelAlignedY,
+            pixelAlignedWidth,
+            pixelAlignedHeight
+        );
+        this.ctx.stroke();
+        this.ctx.restore();
+
+        // Green animated border
+        this.ctx.save();
+        this.ctx.strokeStyle = "#1c6239"; // Excel-style green
+        this.ctx.lineWidth = 2 / this.devicePixelRatio;
+        this.ctx.setLineDash([6, 6]);
+        this.ctx.lineDashOffset = -this.marchingAntsOffset + 6; // shift to offset over the white
+        this.ctx.beginPath();
+        this.ctx.rect(
+            pixelAlignedX,
+            pixelAlignedY,
+            pixelAlignedWidth,
+            pixelAlignedHeight
+        );
+        this.ctx.stroke();
+        this.ctx.restore();
     }
 }
