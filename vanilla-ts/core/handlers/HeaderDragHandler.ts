@@ -388,6 +388,15 @@ export class HeaderDragHandler extends BaseHandler {
         const canvasX = event.clientX - canvasRect.left;
         const canvasY = event.clientY - canvasRect.top;
 
+        // Get dimensions for checking row headers
+        const dimensions = this.grid.getDimensions();
+
+        // Check if mouse is over a row header (left side of grid)
+        const isOverRowHeader =
+            canvasX >= 0 &&
+            canvasX < dimensions.headerWidth &&
+            canvasY >= dimensions.headerHeight;
+
         // Create a synthetic event that always works whether inside or outside canvas
         const syntheticEvent = {
             offsetX: canvasX,
@@ -405,7 +414,20 @@ export class HeaderDragHandler extends BaseHandler {
             canvasY < 0 ||
             canvasY > canvasRect.height;
 
-        if (isOutsideCanvas) {
+        // Handle special case: when dragging column headers and over row headers (left side)
+        // This enables right-to-left scrolling
+        if (isOverRowHeader && this.headerDragType === "column") {
+            // Force scroll to the left when over row headers during column selection
+            this.autoScrollDirection = { x: -this.autoScrollSpeed, y: 0 };
+
+            // Start auto-scrolling if not already started
+            if (!this.autoScrollTimer) {
+                this.startAutoScroll();
+            }
+
+            // Update selection during auto-scroll
+            this.updateSelectionDuringAutoScroll();
+        } else if (isOutsideCanvas) {
             // Handle auto-scrolling when outside canvas
             this.handleAutoScrollOutsideCanvas(canvasX, canvasY, canvasRect);
 

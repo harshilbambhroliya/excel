@@ -377,6 +377,15 @@ export class DefaultHandler extends BaseHandler {
         const canvasX = event.clientX - canvasRect.left;
         const canvasY = event.clientY - canvasRect.top;
 
+        // Get dimensions for checking row headers
+        const dimensions = this.grid.getDimensions();
+
+        // Check if mouse is over a row header (left side of grid)
+        const isOverRowHeader =
+            canvasX >= 0 &&
+            canvasX < dimensions.headerWidth &&
+            canvasY >= dimensions.headerHeight;
+
         // Check if mouse is outside canvas bounds
         const isOutsideCanvas =
             canvasX < 0 ||
@@ -384,7 +393,20 @@ export class DefaultHandler extends BaseHandler {
             canvasY < 0 ||
             canvasY > canvasRect.height;
 
-        if (isOutsideCanvas) {
+        // Handle special case: when mouse is over row headers during cell selection
+        // This enables right-to-left scrolling
+        if (isOverRowHeader && this.isMouseDown && this.isDragging) {
+            // Force scroll to the left when over row headers during cell selection
+            this.autoScrollDirection = { x: -this.autoScrollSpeed, y: 0 };
+
+            // Start auto-scrolling if not already started
+            if (!this.autoScrollTimer) {
+                this.startAutoScroll();
+            }
+
+            // Continue extending selection based on current mouse position
+            this.updateSelectionDuringAutoScroll();
+        } else if (isOutsideCanvas) {
             // Handle auto-scrolling when outside canvas
             this.handleAutoScrollOutsideCanvas(canvasX, canvasY, canvasRect);
         } else {
