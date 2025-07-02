@@ -500,24 +500,28 @@ export class EventHandler implements IHandlerContext {
                 this.handleCalculation(newValue);
             }
         }
-
         this.cellEditor.style.display = "none";
         this.editingCell = null;
         this.canvas.focus();
+
+        // Clear any origin cell highlighting when finishing edit
+        this.clearOriginCell();
     }
-
-    // Keep only essential event handlers that aren't covered by the handler system
-
-    /**
-     * Handles the double click event
-     * @param event - The mouse event
-     */
     private handleDoubleClick(event: MouseEvent): void {
         const cellPos = this.renderer.getCellAtPosition(
             event.offsetX,
             event.offsetY
         );
         if (cellPos) {
+            // Check if the cell contains a formula
+            const cell = this.grid.getCell(cellPos.row, cellPos.col);
+            if (cell.formula && cell.formula.startsWith("=")) {
+                // Show the range selection for the formula first, including the origin cell
+                this.showFormulaRangeSelection(cell.formula, {
+                    row: cellPos.row,
+                    col: cellPos.col,
+                });
+            }
             this.startCellEdit(
                 cellPos.row,
                 cellPos.col,
@@ -945,6 +949,7 @@ export class EventHandler implements IHandlerContext {
                 event.preventDefault();
                 // Select all cells
                 this.grid.clearAllSelections();
+                this.renderer.clearFormulaRangeSelection(); // Return to normal green selection
                 selection.start(0, 0);
                 selection.extend(
                     this.grid.getMaxRows() - 1,
@@ -1134,13 +1139,13 @@ export class EventHandler implements IHandlerContext {
 
     /**
      * Handles the selection after a key down event
-     */
-    private handleSelectionAfterKeyDown(
+     */ private handleSelectionAfterKeyDown(
         selection: Selection,
         newRow: number,
         newCol: number
     ): void {
         this.grid.clearAllSelections();
+        this.renderer.clearFormulaRangeSelection(); // Return to normal green selection
         selection.start(newRow, newCol);
         this.highlightHeadersForCell(newRow, newCol);
         this.renderer.render();
@@ -1588,6 +1593,7 @@ export class EventHandler implements IHandlerContext {
 
         this.grid.getSelection().start(startRowIndex, startColIndex);
         this.grid.getSelection().extend(endRowIndex, endColIndex);
+        this.renderer.setFormulaRangeSelection(true); // Use blue for formula calculation
         this.updateSelectionStats();
         this.highlightHeadersForSelection();
         this.renderer.render();
@@ -1830,5 +1836,89 @@ export class EventHandler implements IHandlerContext {
             }
         }
         return 0;
+    }
+    /**
+     * Shows the range selection for a given formula without calculating the result
+     * @param formula - The formula string (e.g., "=SUM(A1:B5)")
+     * @param originCell - The cell containing the formula (optional)
+     * @returns True if range was successfully selected, false otherwise
+     */
+    public showFormulaRangeSelection(
+        formula: string,
+        originCell?: { row: number; col: number }
+    ): boolean {
+        if (!formula.startsWith("=")) {
+            return false;
+        }
+
+        const formulaMatch = formula.match(/^=(\w+)\(([A-Z]+\d+:[A-Z]+\d+)\)$/);
+        if (!formulaMatch) return false;
+
+        const range = formulaMatch[2];
+        const rangeMatch = range.match(/([A-Z]+)(\d+):([A-Z]+)(\d+)/);
+        if (!rangeMatch) return false;
+
+        const startRow = rangeMatch[2];
+        const startCol = rangeMatch[1];
+        const endRow = rangeMatch[4];
+        const endCol = rangeMatch[3];
+
+        const startRowIndex = parseInt(startRow) - 1;
+        const startColIndex = startCol.charCodeAt(0) - 65;
+        const endRowIndex = parseInt(endRow) - 1;
+        const endColIndex = endCol.charCodeAt(0) - 65; // Clear current selections and set new range selection
+        this.grid.clearAllSelections();
+        this.grid.getSelection().start(startRowIndex, startColIndex);
+        this.grid.getSelection().extend(endRowIndex, endColIndex);
+
+        // Set this as a formula range selection to use blue color
+        this.renderer.setFormulaRangeSelection(true);
+
+        // If origin cell is provided and it's not within the range, select it as well
+        if (originCell) {
+            const selection = this.grid.getSelection();
+            const minRow = Math.min(selection.startRow, selection.endRow);
+            const maxRow = Math.max(selection.startRow, selection.endRow);
+            const minCol = Math.min(selection.startCol, selection.endCol);
+            const maxCol = Math.max(selection.startCol, selection.endCol);
+
+            // Check if origin cell is outside the range
+            if (
+                originCell.row < minRow ||
+                originCell.row > maxRow ||
+                originCell.col < minCol ||
+                originCell.col > maxCol
+            ) {
+                // Create a separate selection for the origin cell
+                // We'll use a visual indicator to show both selections
+                this.highlightOriginCell(originCell.row, originCell.col);
+            }
+        }
+
+        // Update visuals
+        this.highlightHeadersForSelection();
+        this.updateSelectionStats();
+        this.renderer.render();
+
+        return true;
+    }
+    /**
+     * Highlights the origin cell (the cell containing the formula) with a special style
+     * @param row - The row of the origin cell
+     * @param col - The column of the origin cell
+     */
+    private highlightOriginCell(row: number, col: number): void {
+        // Store the origin cell position for the renderer to highlight it differently
+        this.renderer.setOriginCell(row, col);
+
+        // Also highlight its headers
+        this.highlightHeadersForCell(row, col);
+    }
+    /**
+     * Clears the origin cell when starting a new selection
+     */
+    private clearOriginCell(): void {
+        this.renderer.clearOriginCell();
+        this.renderer.clearFormulaRangeSelection(); // Return to normal green selection
     }
 }

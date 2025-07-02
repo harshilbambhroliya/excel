@@ -68,6 +68,16 @@ export class Renderer {
     public dottedLineAcrossSelection: boolean = false;
 
     /**
+     * Origin cell for dual selection (formula cell + range)
+     */
+    private originCell: { row: number; col: number } | null = null;
+
+    /**
+     * Flag to indicate if current selection is a formula range selection
+     */
+    private isFormulaRangeSelection: boolean = false;
+
+    /**
      * Constructor for the Renderer class
      * @param {HTMLCanvasElement} canvas The canvas element to render the grid on
      * @param {Grid} grid The grid to render
@@ -1238,7 +1248,9 @@ export class Renderer {
         const pixelAlignedHeight = Math.round(height);
 
         // Draw selection highlight with a more noticeable color
-        this.ctx.fillStyle = "rgba(28, 98, 57, 0.15)"; // Light green with transparency
+        this.ctx.fillStyle = this.isFormulaRangeSelection
+            ? "rgba(108, 189, 239, 0.15)"
+            : "rgba(28, 98, 57, 0.15)"; // Light green with transparency
 
         // First, determine if this is a multi-cell selection
         const isMultiCellSelection = !(minRow === maxRow && minCol === maxCol);
@@ -1331,7 +1343,10 @@ export class Renderer {
         }
 
         // Draw selection border with a thicker and more visible style
-        this.ctx.strokeStyle = "#1c6239"; // Darker green for the border
+        // Use blue for formula ranges, dark green for normal selections
+        this.ctx.strokeStyle = this.isFormulaRangeSelection
+            ? "#0078d4"
+            : "#1c6239";
         this.ctx.lineWidth = 2.5 / this.devicePixelRatio;
         this.ctx.strokeRect(
             pixelAlignedX - 0.5,
@@ -1342,7 +1357,9 @@ export class Renderer {
 
         // Add corner handles for better selection visibility
         const handleSize = 6;
-        this.ctx.fillStyle = "#1c6239";
+        this.ctx.fillStyle = this.isFormulaRangeSelection
+            ? "#0078d4"
+            : "#1c6239";
 
         // Bottom-right corner
         this.ctx.fillRect(
@@ -1352,7 +1369,79 @@ export class Renderer {
             handleSize
         );
 
+        // Render origin cell if it exists and is outside the current selection
+        if (this.originCell) {
+            const { row: originRow, col: originCol } = this.originCell;
+
+            // Check if origin cell is outside the main selection
+            if (
+                originRow < minRow ||
+                originRow > maxRow ||
+                originCol < minCol ||
+                originCol > maxCol
+            ) {
+                this.renderOriginCell(originRow, originCol, dimensions);
+            }
+        }
+
         // Restore the context
+        this.ctx.restore();
+    }
+
+    /**
+     * Renders the origin cell (formula cell) with a distinct visual style
+     * @param row - Row of the origin cell
+     * @param col - Column of the origin cell
+     * @param dimensions - Grid dimensions
+     */
+    private renderOriginCell(row: number, col: number, dimensions: any): void {
+        // Calculate origin cell position
+        const originX =
+            dimensions.headerWidth +
+            (this.getColumnPosition(col) -
+                dimensions.headerWidth -
+                this.scrollX) *
+                this.zoomFactor;
+        const originY =
+            dimensions.headerHeight +
+            (this.getRowPosition(row) -
+                dimensions.headerHeight -
+                this.scrollY) *
+                this.zoomFactor;
+
+        const cellWidth = this.grid.getColumnWidth(col) * this.zoomFactor;
+        const cellHeight = this.grid.getRowHeight(row) * this.zoomFactor;
+
+        // Check if origin cell is visible
+        if (
+            originX + cellWidth < dimensions.headerWidth ||
+            originY + cellHeight < dimensions.headerHeight ||
+            originX > this.viewport.width ||
+            originY > this.viewport.height
+        ) {
+            return;
+        }
+
+        // Save context for origin cell rendering
+        this.ctx.save();
+
+        // Draw origin cell with a different style (black border for formula cell)
+        this.ctx.strokeStyle = "#1c6239";
+        this.ctx.lineWidth = 2.5 / this.devicePixelRatio;
+
+        // Ensure pixel alignment
+        const pixelAlignedX = Math.round(originX) + 0.5;
+        const pixelAlignedY = Math.round(originY) + 0.5;
+        const pixelAlignedWidth = Math.round(cellWidth);
+        const pixelAlignedHeight = Math.round(cellHeight);
+
+        this.ctx.strokeRect(
+            pixelAlignedX - 0.5,
+            pixelAlignedY - 0.5,
+            pixelAlignedWidth,
+            pixelAlignedHeight
+        );
+
         this.ctx.restore();
     }
 
@@ -1888,5 +1977,35 @@ export class Renderer {
      */
     public refreshScrollbars(): void {
         this.updateScrollbars();
+    }
+
+    /**
+     * Sets the origin cell for dual selection (formula cell + range)
+     * @param row - The row of the origin cell
+     * @param col - The column of the origin cell
+     */
+    public setOriginCell(row: number, col: number): void {
+        this.originCell = { row, col };
+    }
+
+    /**
+     * Clears the origin cell
+     */
+    public clearOriginCell(): void {
+        this.originCell = null;
+    }
+
+    /**
+     * Sets the selection as a formula range selection (blue color)
+     */
+    public setFormulaRangeSelection(isFormulaRange: boolean): void {
+        this.isFormulaRangeSelection = isFormulaRange;
+    }
+
+    /**
+     * Clears the formula range selection flag (returns to normal green selection)
+     */
+    public clearFormulaRangeSelection(): void {
+        this.isFormulaRangeSelection = false;
     }
 }

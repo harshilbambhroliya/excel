@@ -54,10 +54,10 @@ export class DefaultHandler extends BaseHandler {
         );
         if (cellPos) {
             this.renderer.dottedLineAcrossSelection = false;
-            this.context.finishCellEdit();
-
-            // Clear all selections (cell and header)
-            this.grid.clearAllSelections();
+            this.context.finishCellEdit(); // Clear all selections (cell and header)
+            this.grid.clearAllSelections(); // Clear any origin cell highlighting and formula range selection
+            this.renderer.clearOriginCell();
+            this.renderer.clearFormulaRangeSelection();
 
             // Start a new cell selection
             this.grid.getSelection().start(cellPos.row, cellPos.col);
@@ -70,6 +70,8 @@ export class DefaultHandler extends BaseHandler {
         } else {
             // Clicked in an empty area, clear selection
             this.grid.clearAllSelections();
+            this.renderer.clearOriginCell();
+            this.renderer.clearFormulaRangeSelection();
             this.renderer.render();
         }
 
