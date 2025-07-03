@@ -304,12 +304,18 @@ export class Grid {
     public selectRow(rowIndex: number): void {
         this.clearAllSelections();
         if (rowIndex >= 0 && rowIndex < this.rows.length) {
+            // Select the row header
             this.rows[rowIndex].select();
+
+            // Select all cells in the row by updating the selection
             this.selection.start(rowIndex, 0);
             this.selection.extend(
                 rowIndex,
                 this.dataManager.getCurrentCols() - 1
             );
+
+            // Ensure the selection is active
+            this.selection.isActive = true;
         }
     }
 
@@ -320,12 +326,18 @@ export class Grid {
     public selectColumn(colIndex: number): void {
         this.clearAllSelections();
         if (colIndex >= 0 && colIndex < this.columns.length) {
+            // Select the column header
             this.columns[colIndex].select();
+
+            // Select all cells in the column by updating the selection
             this.selection.start(0, colIndex);
             this.selection.extend(
                 this.dataManager.getCurrentRows() - 1,
                 colIndex
             );
+
+            // Ensure the selection is active
+            this.selection.isActive = true;
         }
     }
 
@@ -582,6 +594,9 @@ export class Grid {
         this.selection.start(minRow, 0);
         this.selection.extend(maxRow, this.dataManager.getCurrentCols() - 1);
 
+        // Ensure the selection is active
+        this.selection.isActive = true;
+
         console.log(`Selected rows from ${minRow} to ${maxRow}`);
     }
 
@@ -608,6 +623,9 @@ export class Grid {
         // Set the selection to cover all cells in the column range
         this.selection.start(0, minCol);
         this.selection.extend(this.dataManager.getCurrentRows() - 1, maxCol);
+
+        // Ensure the selection is active
+        this.selection.isActive = true;
 
         console.log(`Selected columns from ${minCol} to ${maxCol}`);
     }

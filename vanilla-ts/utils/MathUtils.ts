@@ -1,5 +1,5 @@
 // src/utils/MathUtils.ts
-import { Cell } from '../models/Cell.js';
+import { Cell } from "../models/Cell.js";
 
 /**
  * Utility class for mathematical operations on cells
@@ -18,8 +18,8 @@ export class MathUtils {
         average: number;
     } {
         const numericValues = cells
-            .map(cell => cell.getNumericValue())
-            .filter(value => value !== null) as number[];
+            .map((cell) => cell.getNumericValue())
+            .filter((value) => value !== null) as number[];
 
         if (numericValues.length === 0) {
             return {
@@ -27,11 +27,13 @@ export class MathUtils {
                 sum: 0,
                 min: 0,
                 max: 0,
-                average: 0
+                average: 0,
             };
         }
-
-        const sum = numericValues.reduce((acc, val) => acc + val, 0);
+        let sum = 0;
+        for (const value of numericValues) {
+            sum += value;
+        }
         const min = Math.min(...numericValues);
         const max = Math.max(...numericValues);
         const average = sum / numericValues.length;
@@ -41,7 +43,7 @@ export class MathUtils {
             sum,
             min,
             max,
-            average
+            average,
         };
     }
 }
