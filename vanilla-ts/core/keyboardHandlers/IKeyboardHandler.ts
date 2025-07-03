@@ -45,7 +45,14 @@ export interface IKeyboardContext {
     /**
      * Start editing a cell
      */
-    startCellEdit(row: number, col: number, x: number, y: number): void;
+    startCellEdit(
+        row: number,
+        col: number,
+        x: number,
+        y: number,
+        isTypingEvent: boolean,
+        firstChar?: string
+    ): void;
 
     /**
      * Handle selection after key navigation

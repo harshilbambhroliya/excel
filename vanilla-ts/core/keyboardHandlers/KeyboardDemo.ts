@@ -83,8 +83,17 @@ export class KeyboardDemo implements IKeyboardContext {
      * @param col - The column index of the cell to edit
      * @param x - The x coordinate for the cell
      * @param y - The y coordinate for the cell
+     * @param isTypingEvent - Whether this edit was triggered by typing
+     * @param firstChar - The first character typed if this was triggered by typing
      */
-    public startCellEdit(row: number, col: number, x: number, y: number): void {
+    public startCellEdit(
+        row: number,
+        col: number,
+        x: number,
+        y: number,
+        isTypingEvent: boolean = false,
+        firstChar: string = ""
+    ): void {
         console.log(`Starting cell edit at ${row}, ${col}`);
         this.editingCell = { row, col };
     }

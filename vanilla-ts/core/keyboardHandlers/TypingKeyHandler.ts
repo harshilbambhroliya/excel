@@ -37,14 +37,17 @@ export class TypingKeyHandler extends BaseKeyboardHandler {
             selection.startRow,
             selection.startCol
         );
+
         if (cellRect) {
             this.preventDefault(event);
-
+            const firstChar = event.key; // Get the first character typed
             this.context.startCellEdit(
                 selection.startRow,
                 selection.startCol,
                 cellRect.x,
-                cellRect.y
+                cellRect.y,
+                true, // true indicates this is a typing key event
+                firstChar // Pass the first character typed
             );
         }
 

@@ -69,7 +69,8 @@ export class SpecialKeyHandler extends BaseKeyboardHandler {
                 selection.startRow,
                 selection.startCol,
                 cellRect.x,
-                cellRect.y
+                cellRect.y,
+                false
             );
         }
         this.context.renderer.render();
@@ -126,7 +127,9 @@ export class SpecialKeyHandler extends BaseKeyboardHandler {
                 selection.startRow,
                 selection.startCol,
                 0,
-                0
+                0,
+                true,
+                "" // For backspace, we want to clear the cell
             );
         }
 

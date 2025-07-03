@@ -520,7 +520,6 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
             this.cellEditor.style.fontSize =
                 this.BASE_EDITOR_FONT_SIZE * zoomFactor + "px";
 
-            // Set transparent background and no border to show selection behind
             this.cellEditor.style.border = "none";
             this.cellEditor.style.zIndex = "10";
 
