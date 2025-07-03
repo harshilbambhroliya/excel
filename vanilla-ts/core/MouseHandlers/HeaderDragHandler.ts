@@ -138,9 +138,8 @@ export class HeaderDragHandler extends BaseHandler {
                 this.context.highlightHeadersForSelection();
             }
         }
-        this.renderer.render();
         this.context.updateSelectionStats();
-
+        this.renderer.render();
         // Check for auto-scrolling when dragging header selection
         this.handleAutoScroll(event.offsetX, event.offsetY);
 

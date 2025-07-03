@@ -247,13 +247,35 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         const statsElement = document.getElementById("selectionStats");
         if (!statsElement) return;
 
-        const selectedCells = this.grid.getCellsInSelection();
-
-        if (selectedCells.length === 0) {
+        const selection = this.grid.getSelection();
+        if (!selection.isActive) {
             statsElement.textContent = "";
             return;
         }
 
+        // Calculate the number of cells without actually retrieving all cell objects
+        const minRow = Math.min(selection.startRow, selection.endRow);
+        const maxRow = Math.max(selection.startRow, selection.endRow);
+        const minCol = Math.min(selection.startCol, selection.endCol);
+        const maxCol = Math.max(selection.startCol, selection.endCol);
+
+        const numRows = maxRow - minRow + 1;
+        const numCols = maxCol - minCol + 1;
+        const cellCount = numRows * numCols;
+
+        if (cellCount === 0) {
+            statsElement.textContent = "";
+            return;
+        }
+
+        // For very large selections, only show the count to avoid performance issues
+        // if (cellCount > 1000) {
+        //     statsElement.innerHTML = `<div class="stat-item" id="selected">Selected: <span class="stat-value">${cellCount} cells</span></div>`;
+        //     return;
+        // }
+
+        // For smaller selections, calculate full statistics
+        const selectedCells = this.grid.getCellsInSelection();
         const stats = MathUtils.calculateStats(selectedCells);
 
         if (stats.count > 0) {
@@ -271,12 +293,10 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
                 <div class="stat-item" id="max">Max: <span class="stat-value">${
                     stats.max
                 }</span></div>
-                <div class="stat-item" id="selected">Selected: <span class="stat-value">${
-                    selectedCells.length
-                } cells</span></div>
+                <div class="stat-item" id="selected">Selected: <span class="stat-value">${cellCount} cells</span></div>
             `;
         } else {
-            statsElement.innerHTML = `<div class="stat-item" id="selected">Selected: <span class="stat-value">${selectedCells.length} cells</span></div>`;
+            statsElement.innerHTML = `<div class="stat-item" id="selected">Selected: <span class="stat-value">${cellCount} cells</span></div>`;
         }
     }
 
@@ -306,6 +326,7 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
     /**
      * Highlights the headers for the current selection
      * This method highlights the row and column headers for the currently selected cells
+     * Optimized for performance with large selections
      */
     public highlightHeadersForSelection(): void {
         const selection = this.grid.getSelection();
@@ -316,25 +337,34 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         const startCol = selection.startCol;
         const endCol = selection.endCol;
 
-        for (
-            let row = Math.min(startRow, endRow);
-            row <= Math.max(startRow, endRow);
-            row++
-        ) {
-            const rowObj = this.grid.getRow(row);
-            if (rowObj) {
-                rowObj.select();
+        const minRow = Math.min(startRow, endRow);
+        const maxRow = Math.max(startRow, endRow);
+        const minCol = Math.min(startCol, endCol);
+        const maxCol = Math.max(startCol, endCol);
+
+        // Track which rows/columns were already selected to avoid duplicate work
+        const selectedRows = new Set<number>();
+        const selectedCols = new Set<number>();
+
+        // For row headers
+        for (let row = minRow; row <= maxRow; row++) {
+            if (!selectedRows.has(row)) {
+                const rowObj = this.grid.getRow(row);
+                if (rowObj) {
+                    rowObj.select();
+                    selectedRows.add(row);
+                }
             }
         }
 
-        for (
-            let col = Math.min(startCol, endCol);
-            col <= Math.max(startCol, endCol);
-            col++
-        ) {
-            const colObj = this.grid.getColumn(col);
-            if (colObj) {
-                colObj.select();
+        // For column headers
+        for (let col = minCol; col <= maxCol; col++) {
+            if (!selectedCols.has(col)) {
+                const colObj = this.grid.getColumn(col);
+                if (colObj) {
+                    colObj.select();
+                    selectedCols.add(col);
+                }
             }
         }
     }
