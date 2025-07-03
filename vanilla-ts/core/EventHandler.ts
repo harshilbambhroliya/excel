@@ -522,7 +522,6 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
 
             // Set transparent background and no border to show selection behind
             this.cellEditor.style.border = "none";
-            this.cellEditor.style.backgroundColor = "rgba(255, 255, 255, 0.9)";
             this.cellEditor.style.zIndex = "10";
 
             // Set the initial value based on whether this is a typing event
@@ -1001,7 +1000,6 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         this.cellEditor.style.boxSizing = "border-box";
         this.cellEditor.style.margin = "0";
         this.cellEditor.style.border = "none";
-        this.cellEditor.style.backgroundColor = "rgba(255, 255, 255, 0.9)";
         this.cellEditor.style.zIndex = "10";
 
         this.cellEditor.addEventListener(
