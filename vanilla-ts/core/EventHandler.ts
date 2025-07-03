@@ -525,6 +525,8 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         );
         if (cellPos) {
             // Check if the cell contains a formula
+            this.renderer.clearCopiedSelection();
+            this.renderer.render();
             const cell = this.grid.getCell(cellPos.row, cellPos.col);
             if (cell.formula && cell.formula.startsWith("=")) {
                 // Show the range selection for the formula first, including the origin cell
