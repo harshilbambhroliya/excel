@@ -241,7 +241,10 @@ export class HeaderDragHandler extends BaseHandler {
         // Start the animation
         this.autoScrollTimer = requestAnimationFrame(animateScroll);
     }
-
+    /**
+     * Stops the auto-scrolling animation
+     * Cancels the requestAnimationFrame loop
+     */
     private stopAutoScroll(): void {
         if (this.autoScrollTimer) {
             cancelAnimationFrame(this.autoScrollTimer);
@@ -249,7 +252,10 @@ export class HeaderDragHandler extends BaseHandler {
         }
         this.autoScrollDirection = { x: 0, y: 0 };
     }
-
+    /**
+     * Performs the auto-scrolling based on the current direction
+     * Updates the scroll position and selection during auto-scroll
+     */
     private performAutoScroll(): void {
         if (
             this.autoScrollDirection.x === 0 &&
@@ -276,6 +282,10 @@ export class HeaderDragHandler extends BaseHandler {
         this.renderer.render();
         this.context.updateSelectionStats();
     }
+    /**
+     * Updates the selection based on the current mouse position during auto-scrolling
+     * Uses the last known global mouse position to ensure consistent selection behavior
+     */
     private updateSelectionDuringAutoScroll(): void {
         // Use actual global mouse position for selection
         const canvasRect = this.canvas.getBoundingClientRect();
@@ -296,6 +306,13 @@ export class HeaderDragHandler extends BaseHandler {
         // This ensures both in-canvas and out-of-canvas selection work the same way
         this.handleMouseMove(syntheticEvent);
     }
+    /**
+     * Handles auto-scrolling when the mouse is outside the canvas
+     * Calculates scroll speed based on distance from edges
+     * @param canvasX - Mouse X position relative to canvas
+     * @param canvasY - Mouse Y position relative to canvas
+     * @param canvasRect - The bounding rectangle of the canvas
+     */
     private handleAutoScrollOutsideCanvas(
         canvasX: number,
         canvasY: number,
@@ -363,7 +380,10 @@ export class HeaderDragHandler extends BaseHandler {
         }
     }
 
-    // Document-level mouse tracking methods
+    /**
+     * Sets up document-level mouse tracking for header dragging
+     * @param initialEvent - The initial mouse event to capture
+     */
     private setupDocumentMouseTracking(initialEvent: MouseEvent): void {
         // Store initial global mouse position
         this.lastGlobalMousePos = {
@@ -385,7 +405,11 @@ export class HeaderDragHandler extends BaseHandler {
         document.addEventListener("mousemove", this.documentMouseMoveHandler);
         document.addEventListener("mouseup", this.documentMouseUpHandler);
     }
-
+    /**
+     * Handles global mouse move events when dragging headers
+     * This allows tracking mouse movement even when outside the canvas
+     * @param event - The mouse event from the document
+     */
     private handleGlobalMouseMove(event: MouseEvent): void {
         // Update global mouse position
         this.lastGlobalMousePos = { x: event.clientX, y: event.clientY };
@@ -452,7 +476,11 @@ export class HeaderDragHandler extends BaseHandler {
             this.handleMouseMove(syntheticEvent);
         }
     }
-
+    /**
+     * Handles global mouse up events when dragging headers
+     * This allows cleaning up listeners when mouse is released outside the canvas
+     * @param event - The mouse event from the document
+     */
     private handleGlobalMouseUp(event: MouseEvent): void {
         // Clean up document listeners
         this.removeDocumentMouseTracking();
@@ -460,7 +488,10 @@ export class HeaderDragHandler extends BaseHandler {
         // Handle the mouse up normally
         this.handleMouseUp(event);
     }
-
+    /**
+     * Removes document-level mouse tracking listeners
+     * This is called when the mouse is released or when dragging ends
+     */
     private removeDocumentMouseTracking(): void {
         if (this.documentMouseMoveHandler) {
             document.removeEventListener(
