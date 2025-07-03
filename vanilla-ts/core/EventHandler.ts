@@ -280,6 +280,11 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         }
     }
 
+    /**
+     * Highlights the row and column headers for a given cell
+     * @param row - The row index
+     * @param col - The column index
+     */
     public highlightHeadersForCell(row: number, col: number): void {
         console.log(`Highlighting headers for cell at (${row}, ${col})`);
 
@@ -298,6 +303,10 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         }
     }
 
+    /**
+     * Highlights the headers for the current selection
+     * This method highlights the row and column headers for the currently selected cells
+     */
     public highlightHeadersForSelection(): void {
         const selection = this.grid.getSelection();
         if (!selection.isActive) return;
@@ -330,6 +339,12 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         }
     }
 
+    /**
+     * Ensures the cell at the specified row and column is visible
+     * @param row - The row index of the cell
+     * @param col - The column index of the cell
+     * This method scrolls the grid to ensure the specified cell is visible
+     */
     public ensureCellVisible(row: number, col: number): void {
         const dimensions = this.grid.getDimensions();
         const scrollPos = this.renderer.getScrollPosition();
@@ -391,6 +406,12 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         }
     }
 
+    /**
+     * Gets the rectangle for a cell at the specified row and column
+     * @param row - The row index of the cell
+     * @param col - The column index of the cell
+     * @returns The rectangle for the cell, or null if invalid indices
+     */
     public getCellRect(
         row: number,
         col: number
@@ -430,7 +451,14 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
 
         return { x: xPos, y: yPos, width, height };
     }
-
+    /**
+     * Starts editing a cell at the specified row and column
+     * @param row - The row index of the cell
+     * @param col - The column index of the cell
+     * @param x - The x-coordinate for positioning the editor
+     * @param y - The y-coordinate for positioning the editor
+     * @returns void
+     */
     public startCellEdit(row: number, col: number, x: number, y: number): void {
         this.finishCellEdit(); // Finish any existing edit
 
@@ -468,7 +496,9 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
             }
         }
     }
-
+    /**
+     * Creates the cell editor input element
+     */
     public finishCellEdit(): void {
         if (!this.editingCell || !this.cellEditor) return;
 
@@ -518,6 +548,11 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         // Clear any origin cell highlighting when finishing edit
         this.clearOriginCell();
     }
+    /**
+     * Parses a value from the cell editor input
+     * @param value - The input value
+     * @returns The parsed value
+     */
     private handleDoubleClick(event: MouseEvent): void {
         const cellPos = this.renderer.getCellAtPosition(
             event.offsetX,
