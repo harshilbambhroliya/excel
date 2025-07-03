@@ -10,10 +10,10 @@ import { ScrollbarManager } from "./ScrollbarManager.js";
 import { Selection } from "../models/Selection.js";
 import { RemoveRowCommand } from "../commands/RemoveRowCommand.js";
 import { RemoveColumnCommand } from "../commands/RemoveColumnCommand.js";
-import { HandlerManager } from "./handlers/HandlerManager.js";
-import { IHandlerContext } from "./handlers/BaseHandler.js";
-import { KeyboardManager } from "./keyboard/KeyboardManager.js";
-import { IKeyboardContext } from "./keyboard/IKeyboardHandler.js";
+import { HandlerManager } from "./MouseHandlers/HandlerManager.js";
+import { IHandlerContext } from "./MouseHandlers/BaseHandler.js";
+import { KeyboardManager } from "./keyboardHandlers/KeyboardManager.js";
+import { IKeyboardContext } from "./keyboardHandlers/IKeyboardHandler.js";
 
 /**
  * EventHandler class
