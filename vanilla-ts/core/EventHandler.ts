@@ -519,6 +519,7 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
             this.cellEditor.style.display = "block";
             this.cellEditor.style.fontSize =
                 this.BASE_EDITOR_FONT_SIZE * zoomFactor + "px";
+
             this.cellEditor.style.border = "none";
             this.cellEditor.style.zIndex = "10";
 

@@ -50,62 +50,63 @@ export class ShiftKeyHandler extends BaseKeyboardHandler {
                 return true;
             case "ArrowUp":
                 this.preventDefault(event);
-                selection.extend(
-                    Math.max(0, selection.endRow - 1),
-                    selection.endCol
-                );
+                const newUpRow = Math.max(0, selection.endRow - 1);
+                selection.extend(newUpRow, selection.endCol);
                 this.updateSelectionAfterExtend(
                     selection,
                     selection.endRow,
-                    selection.endCol
+                    selection.endCol,
+                    "vertical"
                 );
                 return true;
             case "ArrowDown":
                 this.preventDefault(event);
-                selection.extend(
-                    Math.min(
-                        this.context.grid.getMaxRows() - 1,
-                        selection.endRow + 1
-                    ),
-                    selection.endCol
+                const newDownRow = Math.min(
+                    this.context.grid.getMaxRows() - 1,
+                    selection.endRow + 1
                 );
+                selection.extend(newDownRow, selection.endCol);
                 this.updateSelectionAfterExtend(
                     selection,
                     selection.endRow,
-                    selection.endCol
+                    selection.endCol,
+                    "vertical"
                 );
                 return true;
             case "ArrowLeft":
                 this.preventDefault(event);
-                selection.extend(
-                    selection.endRow,
-                    Math.max(0, selection.endCol - 1)
-                );
+                const newLeftCol = Math.max(0, selection.endCol - 1);
+                selection.extend(selection.endRow, newLeftCol);
                 this.updateSelectionAfterExtend(
                     selection,
                     selection.endRow,
-                    selection.endCol
+                    selection.endCol,
+                    "horizontal"
                 );
                 return true;
             case "ArrowRight":
                 this.preventDefault(event);
-                selection.extend(
-                    selection.endRow,
-                    Math.min(
-                        this.context.grid.getMaxCols() - 1,
-                        selection.endCol + 1
-                    )
+                const newRightCol = Math.min(
+                    this.context.grid.getMaxCols() - 1,
+                    selection.endCol + 1
                 );
+                selection.extend(selection.endRow, newRightCol);
                 this.updateSelectionAfterExtend(
                     selection,
                     selection.endRow,
-                    selection.endCol
+                    selection.endCol,
+                    "horizontal"
                 );
                 return true;
             case "Home":
                 this.preventDefault(event);
                 selection.extend(selection.endRow, 0);
-                this.updateSelectionAfterExtend(selection, selection.endRow, 0);
+                this.updateSelectionAfterExtend(
+                    selection,
+                    selection.endRow,
+                    selection.endCol,
+                    "horizontal"
+                );
                 return true;
             case "End":
                 this.preventDefault(event);
@@ -116,7 +117,8 @@ export class ShiftKeyHandler extends BaseKeyboardHandler {
                 this.updateSelectionAfterExtend(
                     selection,
                     selection.endRow,
-                    lastUsedCol
+                    selection.endCol,
+                    "horizontal"
                 );
                 return true;
         }
@@ -128,16 +130,94 @@ export class ShiftKeyHandler extends BaseKeyboardHandler {
      * @param selection - The current selection in the grid
      * @param row - The row to which the selection was extended
      * @param col - The column to which the selection was extended
+     * @param direction - The direction of the selection extension ('vertical', 'horizontal', or 'both')
      */
     private updateSelectionAfterExtend(
         selection: Selection,
         row: number,
-        col: number
+        col: number,
+        direction: "vertical" | "horizontal" | "both" = "both"
     ): void {
         this.context.grid.clearHeaderSelections();
         this.context.highlightHeadersForSelection();
-        this.context.ensureCellVisible(row, col);
+
+        // Smart auto-scrolling based on direction
+        this.ensureCellVisibleInDirection(row, col, direction);
+
         this.context.renderer.render();
         this.context.updateSelectionStats();
+    }
+
+    /**
+     * Ensures the cell is visible but only scrolls in the specified direction
+     * @param row - The row to make visible
+     * @param col - The column to make visible
+     * @param direction - The direction to allow scrolling ('vertical', 'horizontal', or 'both')
+     */
+    private ensureCellVisibleInDirection(
+        row: number,
+        col: number,
+        direction: "vertical" | "horizontal" | "both"
+    ): void {
+        const dimensions = this.context.grid.getDimensions();
+        const scrollPos = this.context.renderer.getScrollPosition();
+        const zoomFactor = this.context.renderer.getZoom();
+        const cellRect = this.context.getCellRect(row, col);
+
+        if (!cellRect) return;
+
+        let newScrollX = scrollPos.x;
+        let newScrollY = scrollPos.y;
+
+        // Get viewport dimensions from the renderer
+        const viewportWidth = this.context.renderer.viewport.width;
+        const viewportHeight = this.context.renderer.viewport.height;
+
+        // Only check horizontal scrolling if direction allows it
+        if (direction === "horizontal" || direction === "both") {
+            if (cellRect.x < dimensions.headerWidth) {
+                // Need to scroll left
+                newScrollX = 0;
+                for (let i = 0; i < col; i++) {
+                    newScrollX += this.context.grid.getColumnWidth(i);
+                }
+            } else if (cellRect.x + cellRect.width > viewportWidth) {
+                // Need to scroll right
+                newScrollX = 0;
+                for (let i = 0; i <= col; i++) {
+                    newScrollX += this.context.grid.getColumnWidth(i);
+                }
+                newScrollX =
+                    newScrollX -
+                    (viewportWidth - dimensions.headerWidth) / zoomFactor;
+            }
+        }
+
+        // Only check vertical scrolling if direction allows it
+        if (direction === "vertical" || direction === "both") {
+            if (cellRect.y < dimensions.headerHeight) {
+                // Need to scroll up
+                newScrollY = 0;
+                for (let i = 0; i < row; i++) {
+                    newScrollY += this.context.grid.getRowHeight(i);
+                }
+            } else if (cellRect.y + cellRect.height > viewportHeight) {
+                // Need to scroll down
+                newScrollY = 0;
+                for (let i = 0; i <= row; i++) {
+                    newScrollY += this.context.grid.getRowHeight(i);
+                }
+                newScrollY =
+                    newScrollY -
+                    (viewportHeight - dimensions.headerHeight) / zoomFactor;
+            }
+        }
+
+        if (newScrollX !== scrollPos.x || newScrollY !== scrollPos.y) {
+            this.context.renderer.setScroll(
+                Math.max(0, newScrollX),
+                Math.max(0, newScrollY)
+            );
+        }
     }
 }
