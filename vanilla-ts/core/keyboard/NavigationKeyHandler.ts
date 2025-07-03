@@ -17,7 +17,10 @@ export class NavigationKeyHandler extends BaseKeyboardHandler {
         "PageUp",
         "PageDown",
     ];
-
+    /**
+     * Create a new NavigationKeyHandler
+     * @param context - The keyboard context providing access to the grid and commands
+     */
     canHandle(event: KeyboardEvent): boolean {
         const modifiers = this.hasModifierKeys(event);
         return (
@@ -28,6 +31,12 @@ export class NavigationKeyHandler extends BaseKeyboardHandler {
         );
     }
 
+    /**
+     * Handle the keyboard event for navigation keys
+     * @param event - The keyboard event to handle
+     * @param selection - The current selection in the grid
+     * @returns true if the event was handled, false otherwise
+     */
     handle(event: KeyboardEvent, selection: Selection): boolean {
         if (!this.canHandle(event) || !selection.isActive) {
             return false;

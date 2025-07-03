@@ -17,6 +17,10 @@ export class KeyboardManager {
     private handlers: IKeyboardHandler[] = [];
     private context: IKeyboardContext;
 
+    /**
+     * Create a new KeyboardManager
+     * @param context - The keyboard context providing access to the grid and commands
+     */
     constructor(context: IKeyboardContext) {
         this.context = context;
         this.initializeHandlers();

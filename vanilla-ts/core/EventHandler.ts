@@ -575,109 +575,15 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         }
     }
 
-    public handleCopy(selection: Selection): void {
-        this.renderer.renderDottedLineAcrossSelection(selection);
-        if (selection.isActive) {
-            const range = selection.getRange();
-            let prevRow = -1;
-            let values: string[] = [];
-            let text = "";
-            range.forEach((pos) => {
-                const cell = this.grid.getCell(pos.row, pos.col);
-                const value = cell.getDisplayValue();
-                if (pos.row !== prevRow) {
-                    text += values.join("\t") + "\n";
-                    values = [];
-                    prevRow = pos.row;
-                }
-                values.push(value);
-            });
-            text += values.join("\t") + "\n";
-            navigator.clipboard.writeText(text);
-        }
-        this.renderer.render();
-        this.updateSelectionStats();
-    }
-
-    public handleCut(selection: Selection): void {
-        this.handleCopy(selection);
-        this.deleteSelectedCells();
-        this.renderer.render();
-        this.updateSelectionStats();
-    }
-
-    public handlePaste(
-        selection: Selection,
-        newRow: number,
-        newCol: number
-    ): void {
-        event?.preventDefault();
-        this.grid.clearAllSelections();
-        selection.start(newRow, newCol);
-        this.renderer.clearCopiedSelection();
-        navigator.clipboard
-            .readText()
-            .then((text) => {
-                const rows = text.trim().split("\n");
-                const compositeCommand = new CompositeCommand();
-
-                rows.forEach((row, rowIndex) => {
-                    const cells = row.split("\t");
-                    cells.forEach((cellValue, colIndex) => {
-                        const targetRow = newRow + rowIndex;
-                        const targetCol = newCol + colIndex;
-
-                        if (
-                            targetRow < this.grid.getMaxRows() &&
-                            targetCol < this.grid.getMaxCols()
-                        ) {
-                            const command = new EditCellCommand(
-                                this.grid,
-                                targetRow,
-                                targetCol,
-                                this.parseValue(cellValue)
-                            );
-                            compositeCommand.addCommand(command);
-                        }
-                    });
-                });
-
-                if (compositeCommand.count() > 0) {
-                    this.commandManager.executeCommand(compositeCommand);
-
-                    // Select the pasted range
-                    const lastRow = Math.min(
-                        newRow + rows.length - 1,
-                        this.grid.getMaxRows() - 1
-                    );
-                    const lastCol = Math.min(
-                        newCol +
-                            Math.max(...rows.map((r) => r.split("\t").length)) -
-                            1,
-                        this.grid.getMaxCols() - 1
-                    );
-
-                    selection.start(newRow, newCol);
-                    selection.extend(lastRow, lastCol);
-
-                    this.grid.clearHeaderSelections();
-                    this.highlightHeadersForSelection();
-                }
-
-                this.renderer.render();
-                this.updateSelectionStats();
-            })
-            .catch((err) => {
-                console.error("Failed to read clipboard contents: ", err);
-            });
-
-        this.renderer.render();
-        this.updateSelectionStats();
-    }
-
     /**
      * Handles the selection after a key down event
-     */ public handleSelectionAfterKeyDown(
+     * @param selection - The current selection
+     * @param newRow - The new row index
+     * @param newCol - The new column index
+     * @description Clears all selections, highlights the headers for the new cell,
+     * ensures the selected cell is visible in the viewport, and updates the selection stats.
+     * */
+    public handleSelectionAfterKeyDown(
         selection: Selection,
         newRow: number,
         newCol: number
@@ -686,11 +592,16 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         this.renderer.clearFormulaRangeSelection(); // Return to normal green selection
         selection.start(newRow, newCol);
         this.highlightHeadersForCell(newRow, newCol);
+        // Ensure the selected cell is visible in the viewport
+        this.ensureCellVisible(newRow, newCol);
         this.renderer.render();
         this.updateSelectionStats();
     }
 
-    // Touch event handlers
+    /**
+     * Handles the touch start event
+     * @param event - The touch event
+     */
     private handleTouchStart(event: TouchEvent): void {
         event.preventDefault();
 
@@ -716,6 +627,10 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         }
     }
 
+    /**
+     * Handles the touch move event
+     * @param event - The touch event
+     */
     private handleTouchMove(event: TouchEvent): void {
         event.preventDefault();
 
@@ -737,6 +652,10 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         }
     }
 
+    /**
+     * Handles the touch end event
+     * @param event - The touch event
+     */
     private handleTouchEnd(event: TouchEvent): void {
         const mouseEvent = {
             preventDefault: () => {},
@@ -772,7 +691,13 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         }
     }
 
-    // Context menu and utility methods
+    /**
+     * Shows the context menu at the specified position
+     * @param x - The x-coordinate of the context menu
+     * @param y - The y-coordinate of the context menu
+     * @param row - The row index for the context menu
+     * @param col - The column index for the context menu
+     */
     private showContextMenu(
         x: number,
         y: number,
@@ -830,6 +755,10 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         this.contextMenu!.style.display = "block";
     }
 
+    /**
+     * Hides the context menu
+     * @description Sets the context menu display to none and clears the position
+     */
     private hideContextMenu(): void {
         if (this.contextMenu) {
             this.contextMenu.style.display = "none";
@@ -837,7 +766,11 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         }
     }
 
-    // Row/Column insertion methods
+    /**
+     * Inserts a new row above the specified position
+     * @param position - The position where the row should be inserted
+     * @description Inserts a new row above the specified position, updates the grid,
+     */
     public insertRowAbove(position: number): void {
         const command = new InsertRowCommand(this.grid, position);
         this.commandManager.executeCommand(command);
@@ -854,6 +787,11 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         this.renderer.render();
     }
 
+    /**
+     * Inserts a new row below the specified position
+     * @param position - The position where the row should be inserted
+     * @description Inserts a new row below the specified position, updates the grid,
+     */
     public insertRowBelow(position: number): void {
         const command = new InsertRowCommand(this.grid, position + 1);
         this.commandManager.executeCommand(command);
@@ -870,6 +808,11 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         this.renderer.render();
     }
 
+    /**
+     * Inserts a new column to the left of the specified position
+     * @param position - The position where the column should be inserted
+     * @description Inserts a new column to the left of the specified position, updates the grid,
+     */
     public insertColumnLeft(position: number): void {
         const command = new InsertColumnCommand(this.grid, position);
         this.commandManager.executeCommand(command);
@@ -886,6 +829,11 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         this.renderer.render();
     }
 
+    /**
+     * Inserts a new column to the right of the specified position
+     * @param position - The position where the column should be inserted
+     * @description Inserts a new column to the right of the specified position, updates the grid,
+     */
     public insertColumnRight(position: number): void {
         const command = new InsertColumnCommand(this.grid, position + 1);
         this.commandManager.executeCommand(command);
@@ -902,6 +850,11 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         this.renderer.render();
     }
 
+    /**
+     * Removes a row at the specified position
+     * @param position - The position of the row to be removed
+     * @description Removes a row at the specified position, updates the grid,
+     */
     public removeRow(position: number): void {
         const command = new RemoveRowCommand(this.grid, position);
         this.commandManager.executeCommand(command);
@@ -918,6 +871,11 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         this.renderer.render();
     }
 
+    /**
+     * Removes a column at the specified position
+     * @param position - The position of the column to be removed
+     * @description Removes a column at the specified position, updates the grid,
+     */
     public removeColumn(position: number): void {
         const command = new RemoveColumnCommand(this.grid, position);
         this.commandManager.executeCommand(command);
@@ -934,7 +892,9 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         this.renderer.render();
     }
 
-    // Utility methods
+    /**
+     * Creates the cell editor element
+     */
     private createCellEditor(): void {
         this.cellEditor = document.createElement("input");
         this.cellEditor.type = "text";
@@ -961,6 +921,11 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         document.body.appendChild(this.cellEditor);
     }
 
+    /**
+     * Parses a value from the cell editor input
+     * @param value - The input value
+     * @returns The parsed value
+     */
     private handleEditorKeyDown(event: KeyboardEvent): void {
         if (event.key === "Enter") {
             this.finishCellEdit();
@@ -971,6 +936,9 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         }
     }
 
+    /**
+     * Handles the window resize event
+     */
     private handleResize(): void {
         if (this.resizeTimeout) {
             clearTimeout(this.resizeTimeout);
@@ -981,12 +949,18 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         }, 100);
     }
 
+    /**
+     * Handles the scroll event
+     */
     public handleScroll(): void {
         if (this.editingCell) {
             this.updateCellEditorPosition();
         }
     }
 
+    /**
+     * Updates the position of the cell editor element
+     */
     private updateCellEditorPosition(): void {
         if (!this.editingCell || !this.cellEditor) return;
 
@@ -1013,11 +987,18 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         }
     }
 
+    /**
+     * Updates the resize handles on zoom
+     */
     public updateResizeHandlesOnZoom(): void {
         this.handlerManager.resetToDefault();
         this.renderer.render();
     }
 
+    /**
+     * Toggles the specified style for the selected cells
+     * @param style - The style to be toggled
+     */
     public toggleStyle(
         style: "bold" | "italic" | "underline" | "strikethrough"
     ): void {
@@ -1074,6 +1055,10 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         }
     }
 
+    /**
+     * Handles formula calculations based on the input value
+     * @param value - The input value
+     */
     public handleCalculation(value: string): number | null {
         if (!value.startsWith("=")) {
             return null;
@@ -1139,6 +1124,11 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         return result;
     }
 
+    /**
+     * @param value - The input value to parse
+     * @description Parses the input value to determine its type (number, boolean, or string)
+     * @returns The parsed value
+     */
     private parseValue(value: string): any {
         if (value === "") return "";
 
@@ -1153,6 +1143,10 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         return value;
     }
 
+    /**
+     * Deletes the selected cells
+     * @description Deletes the content of the selected cells, leaving the cells empty
+     */
     public deleteSelectedCells(): void {
         const selection = this.grid.getSelection();
         if (!selection.isActive) return;
@@ -1178,7 +1172,11 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         this.updateSelectionStats();
     }
 
-    // Math calculation methods
+    /**
+     * Calculates the sum of numeric values in the specified cells
+     * @param cells - The array of cell objects
+     * @returns The sum of numeric values
+     */
     private calculateSum(cells: any[]): number {
         let sum = 0;
         for (const cell of cells) {
@@ -1190,6 +1188,11 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         return sum;
     }
 
+    /**
+     * Calculates the average of numeric values in the specified cells
+     * @param cells - The array of cell objects
+     * @returns The average of numeric values
+     */
     private calculateAverage(cells: any[]): number {
         const numericValues = cells
             .map((cell) => cell.getNumericValue())
@@ -1201,6 +1204,11 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         return sum / numericValues.length;
     }
 
+    /**
+     * Calculates the minimum value in the specified cells
+     * @param cells - The array of cell objects
+     * @returns The minimum numeric value
+     */
     private calculateMin(cells: any[]): number {
         const numericValues = cells
             .map((cell) => cell.getNumericValue())
@@ -1210,6 +1218,11 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         return Math.min(...numericValues);
     }
 
+    /**
+     * Calculates the maximum value in the specified cells
+     * @param cells - The array of cell objects
+     * @returns The maximum numeric value
+     */
     private calculateMax(cells: any[]): number {
         const numericValues = cells
             .map((cell) => cell.getNumericValue())
@@ -1218,6 +1231,12 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         if (numericValues.length === 0) return 0;
         return Math.max(...numericValues);
     }
+
+    /**
+     * Calculates the count of numeric values in the specified cells
+     * @param cells - The array of cell objects
+     * @returns The count of numeric values
+     */
     private calculateCount(cells: any[]): number {
         return cells
             .map((cell) => cell.getNumericValue())
@@ -1375,6 +1394,7 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         }
         return 0;
     }
+
     /**
      * Shows the range selection for a given formula without calculating the result
      * @param formula - The formula string (e.g., "=SUM(A1:B5)")
@@ -1440,6 +1460,7 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
 
         return true;
     }
+
     /**
      * Highlights the origin cell (the cell containing the formula) with a special style
      * @param row - The row of the origin cell
@@ -1452,6 +1473,7 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         // Also highlight its headers
         this.highlightHeadersForCell(row, col);
     }
+
     /**
      * Clears the origin cell when starting a new selection
      */

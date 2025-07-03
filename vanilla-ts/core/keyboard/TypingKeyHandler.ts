@@ -7,6 +7,10 @@ import { Selection } from "../../models/Selection.js";
  * Handles printable character keys to start cell editing
  */
 export class TypingKeyHandler extends BaseKeyboardHandler {
+    /**
+     * Create a new TypingKeyHandler
+     * @param context - The keyboard context providing access to the grid and commands
+     */
     canHandle(event: KeyboardEvent): boolean {
         const modifiers = this.hasModifierKeys(event);
 
@@ -18,7 +22,12 @@ export class TypingKeyHandler extends BaseKeyboardHandler {
             !event.metaKey
         );
     }
-
+    /**
+     * Handle the keyboard event for typing keys
+     * @param event - The keyboard event to handle
+     * @param selection - The current selection in the grid
+     * @returns true if the event was handled, false otherwise
+     */
     handle(event: KeyboardEvent, selection: Selection): boolean {
         if (!this.canHandle(event) || !selection.isActive) {
             return false;

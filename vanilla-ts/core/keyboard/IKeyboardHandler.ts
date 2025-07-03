@@ -92,21 +92,25 @@ export interface IKeyboardContext {
 
     /**
      * Insert row above
+     * @param row - The row index above which to insert
      */
     insertRowAbove(row: number): void;
 
     /**
      * Insert row below
+     * @param row - The row index below which to insert
      */
     insertRowBelow(row: number): void;
 
     /**
      * Insert column left
+     * @param col - The column index to the left of which to insert
      */
     insertColumnLeft(col: number): void;
 
     /**
      * Insert column right
+     * @param col - The column index to the right of which to insert
      */
     insertColumnRight(col: number): void;
 }

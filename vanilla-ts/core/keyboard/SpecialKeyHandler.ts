@@ -14,7 +14,10 @@ export class SpecialKeyHandler extends BaseKeyboardHandler {
         "Backspace",
         "Escape",
     ];
-
+    /**
+     * Create a new SpecialKeyHandler
+     * @param context - The keyboard context providing access to the grid and commands
+     */
     canHandle(event: KeyboardEvent): boolean {
         const modifiers = this.hasModifierKeys(event);
         return (
@@ -23,7 +26,12 @@ export class SpecialKeyHandler extends BaseKeyboardHandler {
             !modifiers.alt
         );
     }
-
+    /**
+     * Handle the keyboard event for special keys
+     * @param event - The keyboard event to handle
+     * @param selection - The current selection in the grid
+     * @returns true if the event was handled, false otherwise
+     */
     handle(event: KeyboardEvent, selection: Selection): boolean {
         if (!this.canHandle(event)) {
             return false;
@@ -43,7 +51,12 @@ export class SpecialKeyHandler extends BaseKeyboardHandler {
 
         return false;
     }
-
+    /**
+     * Handle the Enter key for starting cell edit
+     * @param event - The keyboard event to handle
+     * @param selection - The current selection in the grid
+     * @returns true if the event was handled, false otherwise
+     */
     private handleEnter(event: KeyboardEvent, selection: Selection): boolean {
         if (!selection.isActive) return false;
 
@@ -63,7 +76,12 @@ export class SpecialKeyHandler extends BaseKeyboardHandler {
         this.context.updateSelectionStats();
         return true;
     }
-
+    /**
+     * Handle the Tab key for moving selection
+     * @param event - The keyboard event to handle
+     * @param selection - The current selection in the grid
+     * @returns true if the event was handled, false otherwise
+     */
     private handleTab(event: KeyboardEvent, selection: Selection): boolean {
         if (!selection.isActive) return false;
 
@@ -89,7 +107,12 @@ export class SpecialKeyHandler extends BaseKeyboardHandler {
         this.context.updateSelectionStats();
         return true;
     }
-
+    /**
+     * Handle the Delete or Backspace key for deleting selected cells
+     * @param event - The keyboard event to handle
+     * @param selection - The current selection in the grid
+     * @returns true if the event was handled, false otherwise
+     */
     private handleDelete(event: KeyboardEvent, selection: Selection): boolean {
         if (!selection.isActive) return false;
 
@@ -109,7 +132,12 @@ export class SpecialKeyHandler extends BaseKeyboardHandler {
 
         return true;
     }
-
+    /**
+     * Handle the Escape key for clearing copy selection
+     * @param event - The keyboard event to handle
+     * @param selection - The current selection in the grid
+     * @returns true if the event was handled, false otherwise
+     */
     private handleEscape(event: KeyboardEvent, selection: Selection): boolean {
         this.preventDefault(event);
 
