@@ -38,6 +38,8 @@ export class TypingKeyHandler extends BaseKeyboardHandler {
             selection.startCol
         );
         if (cellRect) {
+            this.preventDefault(event);
+
             this.context.startCellEdit(
                 selection.startRow,
                 selection.startCol,

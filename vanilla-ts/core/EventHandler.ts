@@ -545,6 +545,12 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
                 }
             } else {
                 finalValue = this.parseValue(newValue);
+                if (
+                    newValue.includes("%") &&
+                    !isNaN(parseFloat(newValue.replace("%", "")))
+                ) {
+                    finalValue += "%";
+                }
             }
 
             // Create and execute the command
