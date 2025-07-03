@@ -268,36 +268,29 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
             return;
         }
 
-        // For very large selections, only show the count to avoid performance issues
-        // if (cellCount > 1000) {
-        //     statsElement.innerHTML = `<div class="stat-item" id="selected">Selected: <span class="stat-value">${cellCount} cells</span></div>`;
-        //     return;
-        // }
+        // For very large selections, only show the count immediately and defer the calculation
+        if (cellCount > 10000) {
+            // Show cell count immediately
+            statsElement.innerHTML = `<div class="stat-item" id="selected">Selected: <span class="stat-value">${cellCount} cells</span></div><div class="stat-item">Calculating stats...</div>`;
 
-        // For smaller selections, calculate full statistics
-        const selectedCells = this.grid.getCellsInSelection();
-        const stats = MathUtils.calculateStats(selectedCells);
+            // Get the cells
+            const selectedCells = this.grid.getCellsInSelection();
 
-        if (stats.count > 0) {
-            statsElement.innerHTML = `
-                <div class="stat-item" id="count">Count: <span class="stat-value">${
-                    stats.count
-                }</span></div>
-                <div class="stat-item" id="sum">Sum: <span class="stat-value">${stats.sum.toLocaleString()}</span></div>
-                <div class="stat-item" id="avg">Avg: <span class="stat-value">${stats.average.toFixed(
-                    2
-                )}</span></div>
-                <div class="stat-item" id="min">Min: <span class="stat-value">${
-                    stats.min
-                }</span></div>
-                <div class="stat-item" id="max">Max: <span class="stat-value">${
-                    stats.max
-                }</span></div>
-                <div class="stat-item" id="selected">Selected: <span class="stat-value">${cellCount} cells</span></div>
-            `;
-        } else {
-            statsElement.innerHTML = `<div class="stat-item" id="selected">Selected: <span class="stat-value">${cellCount} cells</span></div>`;
+            // Calculate stats asynchronously to prevent UI blocking
+            setTimeout(() => {
+                const stats = MathUtils.calculateStatsSmart(selectedCells);
+                this.updateStatsDisplay(statsElement, stats, cellCount);
+            }, 0);
+
+            return;
         }
+
+        // For smaller selections, calculate full statistics synchronously
+        const selectedCells = this.grid.getCellsInSelection();
+        const stats = MathUtils.calculateStatsSmart(selectedCells);
+
+        // Use the helper method to update the stats display
+        this.updateStatsDisplay(statsElement, stats, cellCount);
     }
 
     /**
@@ -552,6 +545,12 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
                 }
             } else {
                 finalValue = this.parseValue(newValue);
+                if (
+                    newValue.includes("%") &&
+                    !isNaN(parseFloat(newValue.replace("%", "")))
+                ) {
+                    finalValue += "%";
+                }
             }
 
             // Create and execute the command
@@ -1547,5 +1546,44 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
     private clearOriginCell(): void {
         this.renderer.clearOriginCell();
         this.renderer.clearFormulaRangeSelection(); // Return to normal green selection
+    }
+
+    /**
+     * Updates the stats display with calculated statistics
+     * @param statsElement The HTML element to update
+     * @param stats The calculated statistics
+     * @param cellCount The total number of cells in the selection
+     */
+    private updateStatsDisplay(
+        statsElement: HTMLElement,
+        stats: {
+            count: number;
+            sum: number;
+            min: number;
+            max: number;
+            average: number;
+        },
+        cellCount: number
+    ): void {
+        if (stats.count > 0) {
+            statsElement.innerHTML = `
+                <div class="stat-item" id="count">Count: <span class="stat-value">${
+                    stats.count
+                }</span></div>
+                <div class="stat-item" id="sum">Sum: <span class="stat-value">${stats.sum.toLocaleString()}</span></div>
+                <div class="stat-item" id="avg">Avg: <span class="stat-value">${stats.average.toFixed(
+                    2
+                )}</span></div>
+                <div class="stat-item" id="min">Min: <span class="stat-value">${
+                    stats.min
+                }</span></div>
+                <div class="stat-item" id="max">Max: <span class="stat-value">${
+                    stats.max
+                }</span></div>
+                <div class="stat-item" id="selected">Selected: <span class="stat-value">${cellCount} cells</span></div>
+            `;
+        } else {
+            statsElement.innerHTML = `<div class="stat-item" id="selected">Selected: <span class="stat-value">${cellCount} cells</span></div>`;
+        }
     }
 }
