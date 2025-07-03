@@ -12,12 +12,14 @@ import { RemoveRowCommand } from "../commands/RemoveRowCommand.js";
 import { RemoveColumnCommand } from "../commands/RemoveColumnCommand.js";
 import { HandlerManager } from "./handlers/HandlerManager.js";
 import { IHandlerContext } from "./handlers/BaseHandler.js";
+import { KeyboardManager } from "./keyboard/KeyboardManager.js";
+import { IKeyboardContext } from "./keyboard/IKeyboardHandler.js";
 
 /**
  * EventHandler class
  * @description Handles all the events for the grid using a handler pattern
  */
-export class EventHandler implements IHandlerContext {
+export class EventHandler implements IHandlerContext, IKeyboardContext {
     /**
      * The canvas element
      */
@@ -79,6 +81,11 @@ export class EventHandler implements IHandlerContext {
     private handlerManager: HandlerManager;
 
     /**
+     * The keyboard manager for handling keyboard events
+     */
+    private keyboardManager: KeyboardManager;
+
+    /**
      * The constructor
      * @param canvas - The canvas element
      * @param grid - The grid
@@ -97,6 +104,7 @@ export class EventHandler implements IHandlerContext {
         this.commandManager = commandManager;
 
         this.handlerManager = new HandlerManager(this);
+        this.keyboardManager = new KeyboardManager(this);
 
         // Initialize context menu immediately
         this.contextMenu = document.createElement("div");
@@ -150,7 +158,10 @@ export class EventHandler implements IHandlerContext {
             this.handleDoubleClick.bind(this)
         );
         this.canvas.addEventListener("wheel", this.handleWheel.bind(this));
-        this.canvas.addEventListener("keydown", this.handleKeyDown.bind(this));
+        this.canvas.addEventListener("keydown", (event: KeyboardEvent) => {
+            const selection = this.grid.getSelection();
+            this.keyboardManager.handleKeyboardEvent(event, selection);
+        });
 
         // Prevent default context menu and use our custom one
         this.canvas.addEventListener("contextmenu", (e) => {
@@ -564,486 +575,7 @@ export class EventHandler implements IHandlerContext {
         }
     }
 
-    /**
-     * Handles the key down event
-     * @param event - The keyboard event
-     */
-    private handleKeyDown(event: KeyboardEvent): void {
-        // Handle keyboard shortcuts for undo/redo
-        if (event.ctrlKey && event.key === "z") {
-            this.commandManager.undo();
-            this.renderer.render();
-            event.preventDefault();
-            return;
-        }
-
-        if (event.ctrlKey && event.key === "y") {
-            this.commandManager.redo();
-            this.renderer.render();
-            event.preventDefault();
-            return;
-        }
-
-        // Keyboard shortcuts for inserting rows and columns
-        if (event.ctrlKey && event.shiftKey) {
-            const selection = this.grid.getSelection();
-
-            // Ctrl+Shift+Up Arrow: Insert row above
-            if (event.key === "ArrowUp" && selection.startRow >= 0) {
-                this.insertRowAbove(selection.startRow);
-                event.preventDefault();
-                return;
-            }
-
-            // Ctrl+Shift+Down Arrow: Insert row below
-            if (event.key === "ArrowDown" && selection.startRow >= 0) {
-                this.insertRowBelow(selection.startRow);
-                event.preventDefault();
-                return;
-            }
-
-            // Ctrl+Shift+Left Arrow: Insert column left
-            if (event.key === "ArrowLeft" && selection.startCol >= 0) {
-                this.insertColumnLeft(selection.startCol);
-                event.preventDefault();
-                return;
-            }
-
-            // Ctrl+Shift+Right Arrow: Insert column right
-            if (event.key === "ArrowRight" && selection.startCol >= 0) {
-                this.insertColumnRight(selection.startCol);
-                event.preventDefault();
-                return;
-            }
-        }
-
-        // If we are editing a cell, don't process any other keyboard events
-        if (this.editingCell !== null) {
-            return;
-        }
-
-        const selection = this.grid.getSelection();
-        if (!selection.isActive) return;
-
-        let newRow = selection.startRow;
-        let newCol = selection.startCol;
-
-        // Start editing if a printable character is typed
-        if (
-            event.key.length === 1 &&
-            !event.ctrlKey &&
-            !event.altKey &&
-            !event.metaKey
-        ) {
-            const cellRect = this.getCellRect(newRow, newCol);
-            if (cellRect) {
-                this.startCellEdit(newRow, newCol, cellRect.x, cellRect.y);
-
-                // Clear the existing value since the user wants to start typing from scratch
-                if (this.cellEditor) {
-                    this.cellEditor.value = ""; // Clear the input
-                    this.cellEditor.focus();
-                    const valueLength = this.cellEditor.value.length;
-                    this.cellEditor.setSelectionRange(valueLength, valueLength);
-                }
-            }
-            return;
-        }
-
-        // Handle navigation and other keys
-        this.handleNavigationKeys(event, selection, newRow, newCol);
-    }
-    /**
-     * Handles navigation keys (arrows, enter, tab, etc.)
-     */
-    private handleNavigationKeys(
-        event: KeyboardEvent,
-        selection: Selection,
-        newRow: number,
-        newCol: number
-    ): void {
-        // Check for shift key and handle combinations properly
-        if (event.shiftKey) {
-            this.handleShiftKeys(event, selection);
-        } else if (event.ctrlKey) {
-            this.handleCtrlKeys(event, selection, newRow, newCol);
-        } else {
-            this.handleRegularKeys(event, selection, newRow, newCol);
-        }
-
-        // Get the current selection position after navigation
-        const currentSelection = this.grid.getSelection();
-        if (currentSelection.isActive) {
-            // Highlight corresponding headers for the new cell
-            this.highlightHeadersForCell(
-                currentSelection.startRow,
-                currentSelection.startCol
-            );
-
-            // Make sure the cell is visible
-            this.ensureCellVisible(
-                currentSelection.startRow,
-                currentSelection.startCol
-            );
-        }
-    }
-    private handleShiftKeys(event: KeyboardEvent, selection: Selection): void {
-        // Handle Ctrl+Shift combinations for extending selection to data edges
-        if (event.ctrlKey) {
-            const currentRow = selection.endRow;
-            const currentCol = selection.endCol;
-
-            switch (event.key) {
-                case "ArrowRight":
-                    event.preventDefault();
-                    const targetColRight = this.findNextDataEdge(
-                        currentRow,
-                        currentCol,
-                        "right"
-                    );
-                    selection.extend(currentRow, targetColRight);
-                    this.grid.clearHeaderSelections();
-                    this.highlightHeadersForSelection();
-                    this.ensureCellVisible(currentRow, targetColRight);
-                    this.renderer.render();
-                    this.updateSelectionStats();
-                    break;
-                case "ArrowLeft":
-                    event.preventDefault();
-                    const targetColLeft = this.findNextDataEdge(
-                        currentRow,
-                        currentCol,
-                        "left"
-                    );
-                    selection.extend(currentRow, targetColLeft);
-                    this.grid.clearHeaderSelections();
-                    this.highlightHeadersForSelection();
-                    this.ensureCellVisible(currentRow, targetColLeft);
-                    this.renderer.render();
-                    this.updateSelectionStats();
-                    break;
-                case "ArrowUp":
-                    event.preventDefault();
-                    const targetRowUp = this.findNextDataEdge(
-                        currentRow,
-                        currentCol,
-                        "up"
-                    );
-                    selection.extend(targetRowUp, currentCol);
-                    this.grid.clearHeaderSelections();
-                    this.highlightHeadersForSelection();
-                    this.ensureCellVisible(targetRowUp, currentCol);
-                    this.renderer.render();
-                    this.updateSelectionStats();
-                    break;
-                case "ArrowDown":
-                    event.preventDefault();
-                    const targetRowDown = this.findNextDataEdge(
-                        currentRow,
-                        currentCol,
-                        "down"
-                    );
-                    selection.extend(targetRowDown, currentCol);
-                    this.grid.clearHeaderSelections();
-                    this.highlightHeadersForSelection();
-                    this.ensureCellVisible(targetRowDown, currentCol);
-                    this.renderer.render();
-                    this.updateSelectionStats();
-                    break;
-                case "Home":
-                    event.preventDefault();
-                    selection.extend(currentRow, 0);
-                    this.grid.clearHeaderSelections();
-                    this.highlightHeadersForSelection();
-                    this.ensureCellVisible(currentRow, 0);
-                    this.renderer.render();
-                    this.updateSelectionStats();
-                    break;
-                case "End":
-                    event.preventDefault();
-                    const lastCol = this.findLastUsedColumn(currentRow);
-                    selection.extend(currentRow, lastCol);
-                    this.grid.clearHeaderSelections();
-                    this.highlightHeadersForSelection();
-                    this.ensureCellVisible(currentRow, lastCol);
-                    this.renderer.render();
-                    this.updateSelectionStats();
-                    break;
-            }
-            return;
-        }
-
-        // Regular Shift key combinations (without Ctrl)
-        switch (event.key) {
-            case "Tab":
-                event.preventDefault();
-                let newCol = Math.max(0, selection.startCol - 1);
-                this.handleSelectionAfterKeyDown(
-                    selection,
-                    selection.startRow,
-                    newCol
-                );
-                break;
-            case "ArrowUp":
-                event.preventDefault();
-                selection.extend(
-                    Math.max(0, selection.endRow - 1),
-                    selection.endCol
-                );
-                this.grid.clearHeaderSelections();
-                this.highlightHeadersForSelection();
-                this.ensureCellVisible(selection.endRow, selection.endCol);
-                this.renderer.render();
-                this.updateSelectionStats();
-                break;
-            case "ArrowDown":
-                event.preventDefault();
-                selection.extend(
-                    Math.min(this.grid.getMaxRows() - 1, selection.endRow + 1),
-                    selection.endCol
-                );
-                this.grid.clearHeaderSelections();
-                this.highlightHeadersForSelection();
-                this.ensureCellVisible(selection.endRow, selection.endCol);
-                this.renderer.render();
-                this.updateSelectionStats();
-                break;
-            case "ArrowLeft":
-                event.preventDefault();
-                selection.extend(
-                    selection.endRow,
-                    Math.max(0, selection.endCol - 1)
-                );
-                this.grid.clearHeaderSelections();
-                this.highlightHeadersForSelection();
-                this.ensureCellVisible(selection.endRow, selection.endCol);
-                this.renderer.render();
-                this.updateSelectionStats();
-                break;
-            case "ArrowRight":
-                event.preventDefault();
-                selection.extend(
-                    selection.endRow,
-                    Math.min(this.grid.getMaxCols() - 1, selection.endCol + 1)
-                );
-                this.grid.clearHeaderSelections();
-                this.highlightHeadersForSelection();
-                this.ensureCellVisible(selection.endRow, selection.endCol);
-                this.renderer.render();
-                this.updateSelectionStats();
-                break;
-            case "Home":
-                event.preventDefault();
-                selection.extend(selection.endRow, 0);
-                this.grid.clearHeaderSelections();
-                this.highlightHeadersForSelection();
-                this.ensureCellVisible(selection.endRow, 0);
-                this.renderer.render();
-                this.updateSelectionStats();
-                break;
-            case "End":
-                event.preventDefault();
-                const lastUsedCol = this.findLastUsedColumn(selection.endRow);
-                selection.extend(selection.endRow, lastUsedCol);
-                this.grid.clearHeaderSelections();
-                this.highlightHeadersForSelection();
-                this.ensureCellVisible(selection.endRow, lastUsedCol);
-                this.renderer.render();
-                this.updateSelectionStats();
-                break;
-        }
-    }
-    private handleCtrlKeys(
-        event: KeyboardEvent,
-        selection: Selection,
-        newRow: number,
-        newCol: number
-    ): void {
-        switch (event.key) {
-            case "c":
-                this.handleCopy(selection);
-                break;
-            case "x":
-                this.handleCut(selection);
-                break;
-            case "v":
-                this.handlePaste(selection, newRow, newCol);
-                break;
-            case "ArrowRight":
-                event.preventDefault();
-                const targetColRight = this.findNextDataEdge(
-                    newRow,
-                    newCol,
-                    "right"
-                );
-                this.grid.clearAllSelections();
-                selection.start(newRow, targetColRight);
-                this.handleSelectionAfterKeyDown(
-                    selection,
-                    newRow,
-                    targetColRight
-                );
-                break;
-            case "ArrowLeft":
-                event.preventDefault();
-                const targetColLeft = this.findNextDataEdge(
-                    newRow,
-                    newCol,
-                    "left"
-                );
-                this.grid.clearAllSelections();
-                selection.start(newRow, targetColLeft);
-                this.handleSelectionAfterKeyDown(
-                    selection,
-                    newRow,
-                    targetColLeft
-                );
-                break;
-            case "ArrowUp":
-                event.preventDefault();
-                const targetRowUp = this.findNextDataEdge(newRow, newCol, "up");
-                this.grid.clearAllSelections();
-                selection.start(targetRowUp, newCol);
-                this.handleSelectionAfterKeyDown(
-                    selection,
-                    targetRowUp,
-                    newCol
-                );
-                break;
-            case "ArrowDown":
-                event.preventDefault();
-                const targetRowDown = this.findNextDataEdge(
-                    newRow,
-                    newCol,
-                    "down"
-                );
-                this.grid.clearAllSelections();
-                selection.start(targetRowDown, newCol);
-                this.handleSelectionAfterKeyDown(
-                    selection,
-                    targetRowDown,
-                    newCol
-                );
-                break;
-            case "Home":
-                event.preventDefault();
-                this.grid.clearAllSelections();
-                selection.start(newRow, 0);
-                this.handleSelectionAfterKeyDown(selection, newRow, 0);
-                break;
-            case "End":
-                event.preventDefault();
-                const lastCol = this.findLastUsedColumn(newRow);
-                this.grid.clearAllSelections();
-                selection.start(newRow, lastCol);
-                this.handleSelectionAfterKeyDown(selection, newRow, lastCol);
-                break;
-            case "Enter":
-                event.preventDefault();
-                this.grid.clearAllSelections();
-                selection.start(newRow, newCol);
-                this.renderer.render();
-                this.updateSelectionStats();
-                break;
-            case "a":
-                event.preventDefault();
-                // Select all cells
-                this.grid.clearAllSelections();
-                this.renderer.clearFormulaRangeSelection(); // Return to normal green selection
-                selection.start(0, 0);
-                selection.extend(
-                    this.grid.getMaxRows() - 1,
-                    this.grid.getMaxCols() - 1
-                );
-                this.grid.clearHeaderSelections();
-                this.highlightHeadersForSelection();
-                this.renderer.render();
-                this.updateSelectionStats();
-                break;
-        }
-    }
-    private handleRegularKeys(
-        event: KeyboardEvent,
-        selection: Selection,
-        newRow: number,
-        newCol: number
-    ): void {
-        switch (event.key) {
-            case "ArrowUp":
-                event.preventDefault();
-                newRow = Math.max(0, newRow - 1);
-                this.handleSelectionAfterKeyDown(selection, newRow, newCol);
-                break;
-            case "ArrowDown":
-                event.preventDefault();
-                newRow = Math.min(this.grid.getMaxRows() - 1, newRow + 1);
-                this.handleSelectionAfterKeyDown(selection, newRow, newCol);
-                break;
-            case "ArrowLeft":
-                event.preventDefault();
-                newCol = Math.max(0, newCol - 1);
-                this.handleSelectionAfterKeyDown(selection, newRow, newCol);
-                break;
-            case "ArrowRight":
-                event.preventDefault();
-                newCol = Math.min(this.grid.getMaxCols() - 1, newCol + 1);
-                this.handleSelectionAfterKeyDown(selection, newRow, newCol);
-                break;
-            case "Home":
-                event.preventDefault();
-                newCol = 0;
-                this.handleSelectionAfterKeyDown(selection, newRow, newCol);
-                break;
-            case "End":
-                event.preventDefault();
-                newCol = this.findLastUsedColumn(newRow);
-                this.handleSelectionAfterKeyDown(selection, newRow, newCol);
-                break;
-            case "PageUp":
-                event.preventDefault();
-                newRow = Math.max(0, newRow - 10); // Move up 10 rows
-                this.handleSelectionAfterKeyDown(selection, newRow, newCol);
-                break;
-            case "PageDown":
-                event.preventDefault();
-                newRow = Math.min(this.grid.getMaxRows() - 1, newRow + 10); // Move down 10 rows
-                this.handleSelectionAfterKeyDown(selection, newRow, newCol);
-                break;
-            case "Enter":
-                const cellRect = this.getCellRect(newRow, newCol);
-                if (cellRect) {
-                    this.startCellEdit(newRow, newCol, cellRect.x, cellRect.y);
-                }
-                this.renderer.render();
-                this.updateSelectionStats();
-                return;
-            case "Delete":
-            case "Backspace":
-                this.deleteSelectedCells();
-                this.renderer.render();
-                this.updateSelectionStats();
-                if (event.key === "Backspace") {
-                    this.startCellEdit(newRow, newCol, 0, 0);
-                }
-                return;
-            case "Tab":
-                event.preventDefault();
-                newCol = Math.min(this.grid.getMaxCols() - 1, newCol + 1);
-                this.grid.clearAllSelections();
-                selection.start(newRow, newCol);
-                this.renderer.render();
-                this.updateSelectionStats();
-                break;
-            case "Escape":
-                event.preventDefault();
-                // Clear copy selection when Escape is pressed (Excel behavior)
-                this.renderer.clearCopiedSelection();
-                this.renderer.render();
-                break;
-        }
-    }
-
-    private handleCopy(selection: Selection): void {
+    public handleCopy(selection: Selection): void {
         this.renderer.renderDottedLineAcrossSelection(selection);
         if (selection.isActive) {
             const range = selection.getRange();
@@ -1067,14 +599,14 @@ export class EventHandler implements IHandlerContext {
         this.updateSelectionStats();
     }
 
-    private handleCut(selection: Selection): void {
+    public handleCut(selection: Selection): void {
         this.handleCopy(selection);
         this.deleteSelectedCells();
         this.renderer.render();
         this.updateSelectionStats();
     }
 
-    private handlePaste(
+    public handlePaste(
         selection: Selection,
         newRow: number,
         newCol: number
@@ -1145,7 +677,7 @@ export class EventHandler implements IHandlerContext {
 
     /**
      * Handles the selection after a key down event
-     */ private handleSelectionAfterKeyDown(
+     */ public handleSelectionAfterKeyDown(
         selection: Selection,
         newRow: number,
         newCol: number
@@ -1621,7 +1153,7 @@ export class EventHandler implements IHandlerContext {
         return value;
     }
 
-    private deleteSelectedCells(): void {
+    public deleteSelectedCells(): void {
         const selection = this.grid.getSelection();
         if (!selection.isActive) return;
 
@@ -1699,7 +1231,7 @@ export class EventHandler implements IHandlerContext {
      * @param direction - Direction to search
      * @returns The target row or column index
      */
-    private findNextDataEdge(
+    public findNextDataEdge(
         row: number,
         col: number,
         direction: "up" | "down" | "left" | "right"
@@ -1834,7 +1366,7 @@ export class EventHandler implements IHandlerContext {
      * @param row - Row to search
      * @returns Last column with data, or 0 if no data
      */
-    private findLastUsedColumn(row: number): number {
+    public findLastUsedColumn(row: number): number {
         const maxCols = this.grid.getMaxCols();
         for (let col = maxCols - 1; col >= 0; col--) {
             if (!this.isCellEmpty(row, col)) {
