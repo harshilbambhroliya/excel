@@ -480,9 +480,18 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
      * @param col - The column index of the cell
      * @param x - The x-coordinate for positioning the editor
      * @param y - The y-coordinate for positioning the editor
+     * @param isTypingEvent - Whether this edit was triggered by typing
+     * @param firstChar - The first character typed if this was triggered by typing
      * @returns void
      */
-    public startCellEdit(row: number, col: number, x: number, y: number): void {
+    public startCellEdit(
+        row: number,
+        col: number,
+        x: number,
+        y: number,
+        isTypingEvent: boolean = false,
+        firstChar: string = ""
+    ): void {
         this.finishCellEdit(); // Finish any existing edit
 
         const cell = this.grid.getCell(row, col);
@@ -494,17 +503,36 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
 
         if (this.cellEditor) {
             // Position and size the editor
+            const borderOffset = 2;
             const canvasRect = this.canvas.getBoundingClientRect();
             const zoomFactor = this.renderer.getZoom();
-            this.cellEditor.style.left = canvasRect.left + cellRect.x + "px";
-            this.cellEditor.style.top = canvasRect.top + cellRect.y + "px";
-            this.cellEditor.style.width = cellRect.width + "px";
-            this.cellEditor.style.height = cellRect.height + "px";
+
+            // Adjust positioning to account for selection border
+            this.cellEditor.style.left =
+                canvasRect.left + cellRect.x + borderOffset + "px";
+            this.cellEditor.style.top =
+                canvasRect.top + cellRect.y + borderOffset + "px";
+            this.cellEditor.style.width =
+                cellRect.width - borderOffset * 2 + "px";
+            this.cellEditor.style.height =
+                cellRect.height - borderOffset * 2 + "px";
             this.cellEditor.style.display = "block";
             this.cellEditor.style.fontSize =
                 this.BASE_EDITOR_FONT_SIZE * zoomFactor + "px";
-            // Set the initial value - use edit value to show formula if present
-            this.cellEditor.value = cell.getEditValue();
+
+            // Set transparent background and no border to show selection behind
+            this.cellEditor.style.border = "none";
+            this.cellEditor.style.backgroundColor = "rgba(255, 255, 255, 0.9)";
+            this.cellEditor.style.zIndex = "10";
+
+            // Set the initial value based on whether this is a typing event
+            if (isTypingEvent) {
+                // For typing events, set the value to the first character typed
+                this.cellEditor.value = firstChar;
+            } else {
+                // Otherwise, use edit value to show formula if present
+                this.cellEditor.value = cell.getEditValue();
+            }
 
             // Focus and go to the end of the input
             this.cellEditor.focus();
@@ -603,7 +631,8 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
                 cellPos.row,
                 cellPos.col,
                 event.offsetX,
-                event.offsetY
+                event.offsetY,
+                false // Not a typing event
             );
         }
     }
@@ -971,6 +1000,9 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         this.cellEditor.style.outline = "none";
         this.cellEditor.style.boxSizing = "border-box";
         this.cellEditor.style.margin = "0";
+        this.cellEditor.style.border = "none";
+        this.cellEditor.style.backgroundColor = "rgba(255, 255, 255, 0.9)";
+        this.cellEditor.style.zIndex = "10";
 
         this.cellEditor.addEventListener(
             "blur",
@@ -1038,11 +1070,14 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         if (cellRect) {
             const canvasRect = this.canvas.getBoundingClientRect();
             const zoomFactor = this.renderer.getZoom();
+            const borderOffset = 2;
 
-            const left = Math.round(canvasRect.left + cellRect.x);
-            const top = Math.round(canvasRect.top + cellRect.y);
-            const width = Math.round(cellRect.width);
-            const height = Math.round(cellRect.height);
+            const left = Math.round(
+                canvasRect.left + cellRect.x + borderOffset
+            );
+            const top = Math.round(canvasRect.top + cellRect.y + borderOffset);
+            const width = Math.round(cellRect.width - borderOffset * 2);
+            const height = Math.round(cellRect.height - borderOffset * 2);
 
             this.cellEditor.style.left = left + "px";
             this.cellEditor.style.top = top + "px";
