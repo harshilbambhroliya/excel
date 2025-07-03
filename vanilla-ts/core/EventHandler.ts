@@ -269,7 +269,7 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         }
 
         // For very large selections, only show the count immediately and defer the calculation
-        if (cellCount > 50000) {
+        if (cellCount > 10000) {
             // Show cell count immediately
             statsElement.innerHTML = `<div class="stat-item" id="selected">Selected: <span class="stat-value">${cellCount} cells</span></div><div class="stat-item">Calculating stats...</div>`;
 
