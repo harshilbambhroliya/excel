@@ -20,6 +20,9 @@ export class HeaderDragHandler extends BaseHandler {
     private autoScrollZone: number = 50; // Increased for larger detection area
     private autoScrollMaxFactor: number = 5; // Maximum scroll speed multiplier
 
+    // Debouncing properties for updateSelectionStats
+    private updateSelectionStatsTimer: number | null = null;
+    private updateSelectionStatsDelay: number = 100; // 100ms debounce delay
     /**
      * Creates a new HeaderDragHandler instance
      * @param context - Context containing grid and renderer
@@ -31,6 +34,37 @@ export class HeaderDragHandler extends BaseHandler {
         this.headerDragType = dragType;
         this.headerDragStart = startIndex;
         // Don't select immediately - wait for mouse down
+    }
+    /**
+     * Debounced version of updateSelectionStats
+     * Delays execution until after the specified delay has passed since the last call
+     */
+    private debouncedUpdateSelectionStats(): void {
+        // Clear any existing timer
+        if (this.updateSelectionStatsTimer) {
+            clearTimeout(this.updateSelectionStatsTimer);
+        }
+
+        // Set a new timer
+        this.updateSelectionStatsTimer = setTimeout(() => {
+            this.context.updateSelectionStats();
+            this.updateSelectionStatsTimer = null;
+        }, this.updateSelectionStatsDelay);
+    }
+
+    /**
+     * Immediately updates selection stats and cancels any pending debounced update
+     * Use this when you need immediate updates (e.g., on mouse up)
+     */
+    private immediateUpdateSelectionStats(): void {
+        // Cancel any pending debounced update
+        if (this.updateSelectionStatsTimer) {
+            clearTimeout(this.updateSelectionStatsTimer);
+            this.updateSelectionStatsTimer = null;
+        }
+
+        // Update immediately
+        this.context.updateSelectionStats();
     }
     /**
      * Handles mouse down event to start header dragging
@@ -48,8 +82,9 @@ export class HeaderDragHandler extends BaseHandler {
             this.grid.selectColumn(this.headerDragStart);
         }
         this.context.highlightHeadersForSelection();
-        this.renderer.render();
         this.context.updateSelectionStats();
+        this.renderer.render();
+        this.immediateUpdateSelectionStats();
         return true;
     }
 
@@ -138,7 +173,7 @@ export class HeaderDragHandler extends BaseHandler {
                 this.context.highlightHeadersForSelection();
             }
         }
-        this.context.updateSelectionStats();
+        this.debouncedUpdateSelectionStats();
         this.renderer.render();
         // Check for auto-scrolling when dragging header selection
         this.handleAutoScroll(event.offsetX, event.offsetY);
@@ -149,6 +184,7 @@ export class HeaderDragHandler extends BaseHandler {
         // Stop auto-scrolling and clean up document listeners
         this.stopAutoScroll();
         this.removeDocumentMouseTracking();
+        this.immediateUpdateSelectionStats();
         return true;
     }
 
@@ -279,7 +315,7 @@ export class HeaderDragHandler extends BaseHandler {
         this.updateSelectionDuringAutoScroll();
 
         this.renderer.render();
-        this.context.updateSelectionStats();
+        this.debouncedUpdateSelectionStats();
     }
     /**
      * Updates the selection based on the current mouse position during auto-scrolling
