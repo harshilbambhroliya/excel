@@ -70,7 +70,14 @@ export interface IHandlerContext {
         row: number,
         col: number
     ): { x: number; y: number; width: number; height: number } | null;
-    startCellEdit(row: number, col: number, x: number, y: number): void;
+    startCellEdit(
+        row: number,
+        col: number,
+        x: number,
+        y: number,
+        isTypingEvent?: boolean,
+        firstChar?: string
+    ): void;
     finishCellEdit(): void;
 }
 
