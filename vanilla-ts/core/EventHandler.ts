@@ -80,14 +80,6 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
     private touchScrollLastY: number = 0;
     private isTouchScrolling: boolean = false;
 
-    // Properties for smooth scrolling
-    private scrollVelocityX: number = 0;
-    private scrollVelocityY: number = 0;
-    private scrollAnimationId: number | null = null;
-    private scrollDecay: number = 0.92; // Controls how quickly scrolling slows down (lower = faster stop)
-    private lastScrollTime: number = 0;
-    private scrollMinVelocity: number = 0.1; // Minimum velocity to continue scrolling
-
     /**
      * The handler manager that manages different interaction modes
      */
@@ -748,20 +740,10 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
             const offsetX = touch.clientX - rect.left;
             const offsetY = touch.clientY - rect.top;
 
-            // Cancel any ongoing momentum scrolling
-            if (this.scrollAnimationId !== null) {
-                cancelAnimationFrame(this.scrollAnimationId);
-                this.scrollAnimationId = null;
-                console.log("Cancelled momentum scrolling due to new touch");
-            }
-
-            // Initialize touch scrolling coordinates and state
+            // Initialize touch scrolling coordinates for mobile
             this.touchScrollLastX = touch.clientX;
             this.touchScrollLastY = touch.clientY;
             this.isTouchScrolling = false;
-            this.scrollVelocityX = 0;
-            this.scrollVelocityY = 0;
-            this.lastScrollTime = Date.now();
 
             // Create a simulated mouse event
             const mouseEvent = {
@@ -808,84 +790,46 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
                 const deltaX = this.touchScrollLastX - touch.clientX;
                 const deltaY = this.touchScrollLastY - touch.clientY;
 
-                const now = Date.now();
-                const timeDelta = Math.max(now - this.lastScrollTime || 16, 1); // Ensure time delta is at least 1ms
-
-                // Calculate velocity (pixels per ms)
-                if (this.lastScrollTime) {
-                    // Calculate instantaneous velocity (pixels per frame assuming 60fps)
-                    const instantVelocityX = (deltaX / timeDelta) * 16.67; // Scale to pixels per frame at 60fps
-                    const instantVelocityY = (deltaY / timeDelta) * 16.67;
-
-                    // Apply weighted average for smoother velocity tracking
-                    // Use 80% of previous velocity and 20% of new velocity for stability
-                    this.scrollVelocityX =
-                        0.8 * this.scrollVelocityX + 0.2 * instantVelocityX;
-                    this.scrollVelocityY =
-                        0.8 * this.scrollVelocityY + 0.2 * instantVelocityY;
-
-                    // Log velocity periodically for debugging (once every 10 events)
-                    if (Math.random() < 0.1) {
-                        console.log(
-                            `Velocity X: ${this.scrollVelocityX.toFixed(
-                                2
-                            )}, Y: ${this.scrollVelocityY.toFixed(2)}`
-                        );
-                    }
-                }
-
-                this.lastScrollTime = now;
-
-                // Detect if we're scrolling (with a smaller threshold for better touch response)
+                // Detect if we're scrolling (moved more than 5 pixels in any direction)
                 if (
                     !this.isTouchScrolling &&
-                    (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2)
+                    (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5)
                 ) {
                     this.isTouchScrolling = true;
-                    console.log("Mobile: Starting smooth scroll operation");
-
-                    // Cancel any ongoing momentum scrolling
-                    if (this.scrollAnimationId !== null) {
-                        cancelAnimationFrame(this.scrollAnimationId);
-                        this.scrollAnimationId = null;
-                    }
+                    console.log("Mobile: Starting scroll operation");
                 }
 
                 // If we've determined this is a scroll action, perform scrolling
                 if (this.isTouchScrolling) {
-                    // Apply scroll speed factor (can be adjusted for user preference)
-                    const scrollSpeedFactor = 1.0;
+                    console.log(
+                        "Mobile scrolling: deltaX =",
+                        deltaX,
+                        "deltaY =",
+                        deltaY
+                    );
 
-                    // Calculate scroll deltas with speed factor applied
-                    const effectiveDeltaX = deltaX * scrollSpeedFactor;
-                    const effectiveDeltaY = deltaY * scrollSpeedFactor;
-
-                    // Get current scroll position
+                    // Try direct renderer scrolling first (more reliable)
                     const scrollPos = this.renderer.getScrollPosition();
+                    const newScrollX = Math.max(0, scrollPos.x + deltaX);
+                    const newScrollY = Math.max(0, scrollPos.y + deltaY);
 
-                    // Calculate new scroll position (prevent negative scroll)
-                    const newScrollX = Math.max(
-                        0,
-                        scrollPos.x + effectiveDeltaX
-                    );
-                    const newScrollY = Math.max(
-                        0,
-                        scrollPos.y + effectiveDeltaY
-                    );
+                    console.log("Current scroll:", scrollPos, "New scroll:", {
+                        x: newScrollX,
+                        y: newScrollY,
+                    });
 
-                    // Apply the scroll to the renderer
                     this.renderer.setScroll(newScrollX, newScrollY);
                     this.renderer.render();
 
-                    // Also update scrollbar manager if available
+                    // Also try scrollbar manager if available
                     if (this.scrollbarManager) {
-                        this.scrollbarManager.scrollBy(
-                            effectiveDeltaX,
-                            effectiveDeltaY
+                        console.log(
+                            "Using scrollbar manager for additional scrolling"
                         );
+                        this.scrollbarManager.scrollBy(deltaX, deltaY);
                     }
 
-                    // If cell editor is active while scrolling, update its position
+                    // If we're scrolling, we should update cell editor position if active
                     if (this.editingCell) {
                         requestAnimationFrame(() => {
                             this.updateCellEditorPosition();
@@ -893,11 +837,11 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
                     }
                 }
 
-                // Always update last touch position for the next move event
+                // Always update last touch position for next move event
                 this.touchScrollLastX = touch.clientX;
                 this.touchScrollLastY = touch.clientY;
 
-                // If we're scrolling, skip mouse move handling to avoid selection changes
+                // If we're scrolling, skip mouse move handling
                 if (this.isTouchScrolling) {
                     return;
                 }
@@ -927,62 +871,11 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
 
         this.handlerManager.handleMouseUp(mouseEvent);
 
-        // Handle momentum scrolling for mobile devices
+        // Reset touch scrolling state for mobile devices
         if (this.isMobileDevice()) {
-            // If we were scrolling, start momentum scrolling
+            // If we were scrolling, don't trigger tap/double-tap actions
             if (this.isTouchScrolling) {
-                console.log(
-                    "Mobile: Ending scroll operation with velocity:",
-                    this.scrollVelocityX,
-                    this.scrollVelocityY
-                );
-
-                // Calculate the magnitude of velocity vector for momentum scrolling
-                const velocityMagnitude = Math.sqrt(
-                    this.scrollVelocityX * this.scrollVelocityX +
-                        this.scrollVelocityY * this.scrollVelocityY
-                );
-
-                // Only apply momentum if the velocity is significant (better user experience)
-                const minVelocityForMomentum = 0.8;
-
-                if (velocityMagnitude > minVelocityForMomentum) {
-                    console.log(
-                        `Applying momentum scrolling with magnitude: ${velocityMagnitude.toFixed(
-                            2
-                        )}`
-                    );
-
-                    // Apply a multiplier to control initial momentum strength
-                    // We use 1.2 for a slight boost to make scrolling feel more responsive
-                    const momentumMultiplier = 1.2;
-                    this.scrollVelocityX *= momentumMultiplier;
-                    this.scrollVelocityY *= momentumMultiplier;
-
-                    // Limit maximum velocity to prevent scrolling too fast
-                    const maxVelocity = 25;
-                    if (Math.abs(this.scrollVelocityX) > maxVelocity) {
-                        this.scrollVelocityX =
-                            maxVelocity * Math.sign(this.scrollVelocityX);
-                    }
-                    if (Math.abs(this.scrollVelocityY) > maxVelocity) {
-                        this.scrollVelocityY =
-                            maxVelocity * Math.sign(this.scrollVelocityY);
-                    }
-
-                    // Start the momentum scrolling animation
-                    this.startMomentumScrolling();
-                } else {
-                    // Velocity too low, just reset without momentum
-                    console.log(
-                        `Velocity too low for momentum: ${velocityMagnitude.toFixed(
-                            2
-                        )}`
-                    );
-                    this.scrollVelocityX = 0;
-                    this.scrollVelocityY = 0;
-                }
-
+                console.log("Mobile: Ending scroll operation");
                 this.isTouchScrolling = false;
                 // Reset touch position and time to prevent accidental double-tap
                 this.lastTouchPosition = null;
@@ -1882,109 +1775,5 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         } else {
             statsElement.innerHTML = `<div class="stat-item" id="selected">Selected: <span class="stat-value">${cellCount} cells</span></div>`;
         }
-    }
-
-    /**
-     * Starts momentum scrolling animation after a touch end event
-     * Uses requestAnimationFrame for smooth animation
-     */
-    private startMomentumScrolling(): void {
-        // Cancel any existing animation
-        if (this.scrollAnimationId !== null) {
-            cancelAnimationFrame(this.scrollAnimationId);
-        }
-
-        // Set initial timestamp for the animation
-        let lastTimestamp: number | null = null;
-
-        // Use class property for minimum velocity threshold to stop scrolling
-
-        // Animation function
-        const animateMomentumScroll = (timestamp: number): void => {
-            // Calculate time delta
-            if (lastTimestamp === null) {
-                lastTimestamp = timestamp;
-                this.scrollAnimationId = requestAnimationFrame(
-                    animateMomentumScroll
-                );
-                return;
-            }
-
-            const deltaTime = timestamp - lastTimestamp;
-            lastTimestamp = timestamp;
-
-            // Apply frame delta (convert to seconds for smoother control)
-            const deltaFactor = deltaTime / 1000;
-
-            // Calculate scroll amount for this frame
-            const scrollX = this.scrollVelocityX;
-            const scrollY = this.scrollVelocityY;
-
-            // Apply the scroll if there's any significant velocity
-            if (
-                Math.abs(scrollX) > this.scrollMinVelocity ||
-                Math.abs(scrollY) > this.scrollMinVelocity
-            ) {
-                // Get current scroll position
-                const scrollPos = this.renderer.getScrollPosition();
-
-                // Calculate new scroll position
-                const newScrollX = Math.max(0, scrollPos.x + scrollX);
-                const newScrollY = Math.max(0, scrollPos.y + scrollY);
-
-                // Apply the scroll
-                this.renderer.setScroll(newScrollX, newScrollY);
-                this.renderer.render();
-
-                // Update scrollbar position if manager is available
-                if (this.scrollbarManager) {
-                    this.scrollbarManager.scrollBy(scrollX, scrollY);
-                }
-
-                // If cell editor is active, update its position
-                if (this.editingCell) {
-                    this.updateCellEditorPosition();
-                }
-
-                // Apply decay to velocity (using a configurable decay rate and time delta)
-                // The decay factor determines how quickly scrolling slows down
-                // Lower values = faster slowdown, higher values = longer scrolling
-                const decayFactor = Math.pow(
-                    this.scrollDecay,
-                    deltaFactor * 60
-                ); // Normalize to 60fps
-                this.scrollVelocityX *= decayFactor;
-                this.scrollVelocityY *= decayFactor;
-
-                // Continue animation
-                this.scrollAnimationId = requestAnimationFrame(
-                    animateMomentumScroll
-                );
-            } else {
-                // Velocity is below threshold, stop animation
-                this.scrollVelocityX = 0;
-                this.scrollVelocityY = 0;
-                this.scrollAnimationId = null;
-                console.log("Momentum scrolling completed");
-            }
-        };
-
-        // Start the animation
-        this.scrollAnimationId = requestAnimationFrame(animateMomentumScroll);
-    }
-
-    /**
-     * Removes debug logging for production use
-     * This method can be called to replace all debug console.log statements with no-ops
-     * for performance in production environments
-     */
-    private removeDebugLogging(): void {
-        // In a production environment, you would:
-        // 1. Find all console.log statements related to touch/momentum scrolling
-        // 2. Remove or comment them out
-        // 3. Optionally replace with more targeted performance metrics
-
-        // This is just a placeholder method to document the cleanup process
-        console.log("Production mode: Debug logging disabled");
     }
 }
