@@ -28,15 +28,25 @@ export class Cell implements ICell {
     ) {
         this.value = value;
         this.type = type;
+
+        // Initialize with basic styles
         this.style = {
             backgroundColor: "#ffffff",
             textColor: "#000000",
             fontSize: 14,
             fontWeight: "normal",
-            textAlign: "left",
+            textAlign: "left", // Default alignment
         };
 
+        // Let inferType set the correct type and alignment based on the value
         this.inferType();
+
+        // Log initialization for debugging
+        if (typeof this.value === "number" || this.type === "number") {
+            console.log(
+                `Created numeric cell with value ${this.value}, type ${this.type}, alignment ${this.style.textAlign}`
+            );
+        }
     }
 
     /**
@@ -45,10 +55,29 @@ export class Cell implements ICell {
     private inferType(): void {
         if (typeof this.value === "number") {
             this.type = "number";
+            // Always right-align numbers
+            this.style.textAlign = "right";
         } else if (typeof this.value === "boolean") {
             this.type = "boolean";
         } else if (this.value instanceof Date) {
             this.type = "date";
+        } else if (typeof this.value === "string") {
+            // Check for currency and percentage strings
+            const currencyRegex = /^[$€£¥]\d+\.?\d*$/;
+            const percentRegex = /^\d+\.?\d*%$/;
+            const numberWithCommasRegex = /^-?[\d,]+\.?\d*$/;
+
+            if (
+                currencyRegex.test(this.value) ||
+                percentRegex.test(this.value) ||
+                numberWithCommasRegex.test(this.value)
+            ) {
+                // Mark as "string" but handle specially with style.textAlign = "right"
+                this.type = "string";
+                this.style.textAlign = "right";
+            } else {
+                this.type = "string";
+            }
         } else {
             this.type = "string";
         }
@@ -61,6 +90,8 @@ export class Cell implements ICell {
     public setValue(value: any, formula?: string): void {
         this.value = value;
         this.formula = formula;
+
+        // Let inferType determine the appropriate type and alignment
         this.inferType();
     }
 

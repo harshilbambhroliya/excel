@@ -1073,15 +1073,41 @@ export class Renderer {
                     // this.ctx.font = `${fontWeight} ${scaledFontSize}px Calibri`;
                     this.ctx.font = `${fontStyle} ${fontWeight} ${scaledFontSize}px Calibri`;
 
-                    // Set text alignment based on cell type (right-align numbers)
+                    // Set text alignment based on cell style or fall back to cell type
                     let textX: number;
                     const textY = yPos + scaledHeight / 2; // Vertically center in scaled cell
 
+                    // Log occasionally for debugging
+                    if (
+                        Math.random() < 0.005 &&
+                        typeof cell.value === "number"
+                    ) {
+                        console.log(
+                            `Rendering numeric cell at R${row}C${col}: value=${cell.value}, type=${cell.type}, textAlign=${cell.style.textAlign}`
+                        );
+                    }
+
+                    // Check for numeric content and ensure right alignment
                     if (cell.type === "number") {
+                        // Always right-align numbers
                         this.ctx.textAlign = "right";
-                        // For right-aligned text, position at right edge minus padding
                         const paddingRight = 6 * this.zoomFactor;
                         textX = xPos + scaledWidth - paddingRight;
+                    } else if (
+                        cell.style.textAlign === "right" ||
+                        // Check for numeric strings that should be right-aligned
+                        (typeof cell.value === "string" &&
+                            (/^-?[\d,]+\.?\d*$/.test(cell.value) ||
+                                /^[$€£¥]\d+\.?\d*$/.test(cell.value) ||
+                                /^\d+\.?\d*%$/.test(cell.value)))
+                    ) {
+                        this.ctx.textAlign = "right";
+                        const paddingRight = 6 * this.zoomFactor;
+                        textX = xPos + scaledWidth - paddingRight;
+                    } else if (cell.style.textAlign === "center") {
+                        this.ctx.textAlign = "center";
+                        // For center-aligned text, position at the center of the cell
+                        textX = xPos + scaledWidth / 2;
                     } else {
                         this.ctx.textAlign = "left";
                         // Apply proper padding based on zoom factor for left-aligned text

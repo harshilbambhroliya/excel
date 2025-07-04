@@ -14,6 +14,7 @@ import { HandlerManager } from "./MouseHandlers/HandlerManager.js";
 import { IHandlerContext } from "./MouseHandlers/BaseHandler.js";
 import { KeyboardManager } from "./keyboardHandlers/KeyboardManager.js";
 import { IKeyboardContext } from "./keyboardHandlers/IKeyboardHandler.js";
+import { ICellStyle } from "../types/interfaces.js";
 
 /**
  * EventHandler class
@@ -86,6 +87,9 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
     private lastTouchMoveTime: number = 0;
     private inertialScrollActive: boolean = false;
     private animationFrameId: number | null = null;
+
+    // Property for special formatting cases
+    private _treatAsNumeric: boolean = false;
 
     /**
      * The handler manager that manages different interaction modes
@@ -579,25 +583,123 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
                     finalValue = calculatedResult; // Store the calculated number directly
                 } else {
                     // If formula parsing failed, just store as string
-                    finalValue = this.parseValue(newValue);
+                    finalValue = newValue;
                 }
             } else {
-                finalValue = this.parseValue(newValue);
-                if (
-                    newValue.includes("%") &&
-                    !isNaN(parseFloat(newValue.replace("%", "")))
-                ) {
-                    finalValue += "%";
+                // Try to parse numeric values, but only if the entire value is a number
+                const cleanValue = newValue.replace(/,/g, ""); // Remove commas
+
+                // First, check if it's a currency value ($123, €50, etc.) or percentage (50%)
+                const currencyMatch = cleanValue.match(/^[$€£¥](\d+\.?\d*)$/);
+                const percentMatch = cleanValue.match(/^(\d+\.?\d*)%$/);
+
+                if (currencyMatch) {
+                    // Extract the numeric part from currency
+                    const numericPart = currencyMatch[1];
+                    const parsedNum = parseFloat(numericPart);
+                    if (!isNaN(parsedNum) && isFinite(parsedNum)) {
+                        // Store the original string with the currency symbol
+                        finalValue = newValue;
+
+                        // We're still treating it as numeric for alignment purposes
+                        console.log(
+                            `Keeping currency format: ${newValue} (right aligned)`
+                        );
+
+                        // Set flag to treat as numeric for alignment
+                        this._treatAsNumeric = true;
+                    } else {
+                        finalValue = newValue;
+                    }
+                } else if (percentMatch) {
+                    // Extract the numeric part from percentage but keep the percentage symbol
+                    const numericPart = percentMatch[1];
+                    const parsedNum = parseFloat(numericPart); // Store as a regular number, not divided by 100
+
+                    if (!isNaN(parsedNum) && isFinite(parsedNum)) {
+                        // Store the original string with the percentage symbol
+                        finalValue = newValue;
+
+                        // We're still treating it as numeric for alignment purposes
+                        console.log(
+                            `Keeping percentage format: ${newValue} (right aligned)`
+                        );
+
+                        // Override the isNumeric determination later
+                        // We'll set a flag here and use it later
+                        this._treatAsNumeric = true;
+                    } else {
+                        finalValue = newValue;
+                    }
+                }
+                // Use a strict regex to ensure the ENTIRE value is a valid number
+                // This will prevent "123abc" from being treated as 123
+                else if (/^-?\d*\.?\d+$/.test(cleanValue)) {
+                    const parsedNum = parseFloat(cleanValue);
+
+                    // Double-check it's a valid number
+                    if (!isNaN(parsedNum) && isFinite(parsedNum)) {
+                        finalValue = parsedNum; // Store as number
+                        console.log(
+                            `Parsed number: ${newValue} -> ${parsedNum}`
+                        );
+                    } else {
+                        finalValue = newValue; // Keep as string
+                    }
+                }
+                // Check explicitly for mixed content (numbers + text)
+                else if (/\d/.test(newValue) && /[^\d,.\s]/.test(newValue)) {
+                    // Contains both digits and non-numeric characters
+                    console.log(
+                        `Mixed content detected: ${newValue} (keeping as string)`
+                    );
+                    finalValue = newValue;
+                } else {
+                    // Any other value, keep as string
+                    finalValue = newValue;
+                    console.log(
+                        `Non-numeric value: ${newValue} (keeping as string)`
+                    );
                 }
             }
 
-            // Create and execute the command
+            // Reset the flag at the beginning of each edit
+            const hadSpecialFlag = this._treatAsNumeric;
+
+            // Determine if the value is numeric for styling
+            // Use the _treatAsNumeric flag for special cases like percentages
+            const isNumeric =
+                typeof finalValue === "number" || this._treatAsNumeric;
+
+            // Reset the flag after use
+            this._treatAsNumeric = false;
+
+            // Create style object for alignment based on value type
+            const style: ICellStyle = {
+                textAlign: isNumeric ? "right" : "left",
+            };
+
+            // Log for debugging
+            if (hadSpecialFlag) {
+                console.log(
+                    `Using special numeric treatment for: ${finalValue}`
+                );
+            }
+
+            // Enhanced debug logging for cell text alignment
+            console.log(
+                `Cell value: ${finalValue}, Type: ${typeof finalValue}, isNumeric: ${isNumeric}, textAlign: ${
+                    style.textAlign
+                }`
+            );
+
+            // Create and execute the command with appropriate style
             const command = new EditCellCommand(
                 this.grid,
                 this.editingCell.row,
                 this.editingCell.col,
                 finalValue,
-                undefined, // style (keep existing)
+                style, // Apply numeric right alignment or text left alignment
                 formula // store the formula
             );
             this.commandManager.executeCommand(command);
@@ -639,8 +741,6 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
                 });
             }
 
-            // Start cell editing - on desktop this is triggered by double-click,
-            // and on mobile this is triggered from double-tap
             this.startCellEdit(
                 cellPos.row,
                 cellPos.col,
@@ -1429,19 +1529,18 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
      * @description Parses the input value to determine its type (number, boolean, or string)
      * @returns The parsed value
      */
-    private parseValue(value: string): any {
-        if (value === "") return "";
+    // private parseValue(value: string): any {
+    //     if (value === "") return "";
 
-        const num = parseFloat(value);
-        if (!isNaN(num) && isFinite(num)) {
-            return num;
-        }
+    //     const num = parseFloat(value);
+    //     if (!isNaN(num) && isFinite(num)) {
+    //         return num;
+    //     }
+    //     if (value.toLowerCase() === "true") return true;
+    //     if (value.toLowerCase() === "false") return false;
 
-        if (value.toLowerCase() === "true") return true;
-        if (value.toLowerCase() === "false") return false;
-
-        return value;
-    }
+    //     return value;
+    // }
 
     /**
      * Deletes the selected cells
