@@ -61,23 +61,75 @@ export class ResizeHandler extends BaseHandler {
         const delta = rawDelta / zoomFactor;
 
         if (this.resizeTarget.type === "column") {
-            const currentWidth = this.grid.getColumnWidth(
-                this.resizeTarget.index
-            );
-            const newWidth = Math.max(50, currentWidth + delta);
+            // Check for selected columns
+            const selection = this.grid.getSelection();
+            if (selection && selection.isActive) {
+                const minCol = Math.min(selection.startCol, selection.endCol);
+                const maxCol = Math.max(selection.startCol, selection.endCol);
 
-            // Directly update the grid without creating a command
-            // The command will be created only when the resize operation is complete (on mouse up)
-            this.grid.setColumnWidth(this.resizeTarget.index, newWidth);
+                // Check if the resized column is part of a multi-column selection
+                if (
+                    this.resizeTarget.index >= minCol &&
+                    this.resizeTarget.index <= maxCol &&
+                    maxCol - minCol > 0
+                ) {
+                    // Apply resize to all selected columns
+                    for (let col = minCol; col <= maxCol; col++) {
+                        const currentWidth = this.grid.getColumnWidth(col);
+                        const newWidth = Math.max(50, currentWidth + delta);
+                        this.grid.setColumnWidth(col, newWidth);
+                    }
+                } else {
+                    // Just resize the target column (traditional behavior)
+                    const currentWidth = this.grid.getColumnWidth(
+                        this.resizeTarget.index
+                    );
+                    const newWidth = Math.max(50, currentWidth + delta);
+                    this.grid.setColumnWidth(this.resizeTarget.index, newWidth);
+                }
+            } else {
+                // No selection, just resize the target column
+                const currentWidth = this.grid.getColumnWidth(
+                    this.resizeTarget.index
+                );
+                const newWidth = Math.max(50, currentWidth + delta);
+                this.grid.setColumnWidth(this.resizeTarget.index, newWidth);
+            }
         } else {
-            const currentHeight = this.grid.getRowHeight(
-                this.resizeTarget.index
-            );
-            const newHeight = Math.max(20, currentHeight + delta);
+            // Check for selected rows
+            const selection = this.grid.getSelection();
+            if (selection && selection.isActive) {
+                const minRow = Math.min(selection.startRow, selection.endRow);
+                const maxRow = Math.max(selection.startRow, selection.endRow);
 
-            // Directly update the grid without creating a command
-            // The command will be created only when the resize operation is complete (on mouse up)
-            this.grid.setRowHeight(this.resizeTarget.index, newHeight);
+                // Check if the resized row is part of a multi-row selection
+                if (
+                    this.resizeTarget.index >= minRow &&
+                    this.resizeTarget.index <= maxRow &&
+                    maxRow - minRow > 0
+                ) {
+                    // Apply resize to all selected rows
+                    for (let row = minRow; row <= maxRow; row++) {
+                        const currentHeight = this.grid.getRowHeight(row);
+                        const newHeight = Math.max(20, currentHeight + delta);
+                        this.grid.setRowHeight(row, newHeight);
+                    }
+                } else {
+                    // Just resize the target row (traditional behavior)
+                    const currentHeight = this.grid.getRowHeight(
+                        this.resizeTarget.index
+                    );
+                    const newHeight = Math.max(20, currentHeight + delta);
+                    this.grid.setRowHeight(this.resizeTarget.index, newHeight);
+                }
+            } else {
+                // No selection, just resize the target row
+                const currentHeight = this.grid.getRowHeight(
+                    this.resizeTarget.index
+                );
+                const newHeight = Math.max(20, currentHeight + delta);
+                this.grid.setRowHeight(this.resizeTarget.index, newHeight);
+            }
         }
 
         this.lastMousePos = { x: event.offsetX, y: event.offsetY };
@@ -101,8 +153,70 @@ export class ResizeHandler extends BaseHandler {
     handleMouseUp(event: MouseEvent): boolean {
         if (!this.resizeTarget) return false;
 
+        // Check if we have a selection to handle multiple rows/columns
+        const selection = this.grid.getSelection();
+
         // Create and execute the final resize command when mouse is released
         if (this.resizeTarget.type === "column") {
+            // Check if we're handling a multi-column resize
+            if (selection && selection.isActive) {
+                const minCol = Math.min(selection.startCol, selection.endCol);
+                const maxCol = Math.max(selection.startCol, selection.endCol);
+
+                // If the resize target is part of a multi-column selection
+                if (
+                    this.resizeTarget.index >= minCol &&
+                    this.resizeTarget.index <= maxCol &&
+                    maxCol - minCol > 0
+                ) {
+                    // Get final width from the target column
+                    const finalWidth = this.grid.getColumnWidth(
+                        this.resizeTarget.index
+                    );
+
+                    // Only create commands if the size actually changed
+                    if (finalWidth !== this.resizeStartSize) {
+                        // We'll execute multiple commands in a batch
+                        let batchCommands = [];
+
+                        // For each selected column, create a resize command
+                        for (let col = minCol; col <= maxCol; col++) {
+                            const currentWidth = this.grid.getColumnWidth(col);
+                            const originalWidth = this.resizeStartSize; // All columns will be resized by the same amount
+
+                            // Create command
+                            const command = new ResizeColumnCommand(
+                                this.grid,
+                                col,
+                                currentWidth,
+                                originalWidth
+                            );
+
+                            // Store command for batch execution
+                            batchCommands.push(command);
+
+                            // First revert to original size
+                            this.grid.setColumnWidth(col, originalWidth);
+                        }
+
+                        // Execute all commands as a batch
+                        for (const cmd of batchCommands) {
+                            this.commandManager.executeCommand(cmd);
+                        }
+
+                        console.log(
+                            `Resized ${batchCommands.length} columns simultaneously`
+                        );
+                    }
+
+                    // Exit after handling multiple columns
+                    this.resizeTarget = null;
+                    this.resizeStartSize = -1;
+                    return true;
+                }
+            }
+
+            // Single column resize (original behavior)
             const finalWidth = this.grid.getColumnWidth(
                 this.resizeTarget.index
             );
@@ -126,6 +240,67 @@ export class ResizeHandler extends BaseHandler {
                 this.commandManager.executeCommand(command);
             }
         } else {
+            // Row resize handling
+
+            // Check if we're handling a multi-row resize
+            if (selection && selection.isActive) {
+                const minRow = Math.min(selection.startRow, selection.endRow);
+                const maxRow = Math.max(selection.startRow, selection.endRow);
+
+                // If the resize target is part of a multi-row selection
+                if (
+                    this.resizeTarget.index >= minRow &&
+                    this.resizeTarget.index <= maxRow &&
+                    maxRow - minRow > 0
+                ) {
+                    // Get final height from the target row
+                    const finalHeight = this.grid.getRowHeight(
+                        this.resizeTarget.index
+                    );
+
+                    // Only create commands if the size actually changed
+                    if (finalHeight !== this.resizeStartSize) {
+                        // We'll execute multiple commands in a batch
+                        let batchCommands = [];
+
+                        // For each selected row, create a resize command
+                        for (let row = minRow; row <= maxRow; row++) {
+                            const currentHeight = this.grid.getRowHeight(row);
+                            const originalHeight = this.resizeStartSize; // All rows will be resized by the same amount
+
+                            // Create command
+                            const command = new ResizeRowCommand(
+                                this.grid,
+                                row,
+                                currentHeight,
+                                originalHeight
+                            );
+
+                            // Store command for batch execution
+                            batchCommands.push(command);
+
+                            // First revert to original size
+                            this.grid.setRowHeight(row, originalHeight);
+                        }
+
+                        // Execute all commands as a batch
+                        for (const cmd of batchCommands) {
+                            this.commandManager.executeCommand(cmd);
+                        }
+
+                        console.log(
+                            `Resized ${batchCommands.length} rows simultaneously`
+                        );
+                    }
+
+                    // Exit after handling multiple rows
+                    this.resizeTarget = null;
+                    this.resizeStartSize = -1;
+                    return true;
+                }
+            }
+
+            // Single row resize (original behavior)
             const finalHeight = this.grid.getRowHeight(this.resizeTarget.index);
 
             // Only create a command if the size actually changed
