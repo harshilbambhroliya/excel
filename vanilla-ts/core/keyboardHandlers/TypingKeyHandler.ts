@@ -44,7 +44,9 @@ export class TypingKeyHandler extends BaseKeyboardHandler {
                 selection.startRow,
                 selection.startCol,
                 cellRect.x,
-                cellRect.y
+                cellRect.y,
+                true,
+                event.key
             );
         }
 
