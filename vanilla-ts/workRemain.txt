@@ -1,3 +1,0 @@
-
-// dynamic column and row render based on data.
-SAAS

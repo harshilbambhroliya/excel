@@ -379,50 +379,34 @@ export class DefaultHandler extends BaseHandler {
     private handleGlobalMouseMove(event: MouseEvent): void {
         if (!this.isMouseDown) return;
 
-        // Update global mouse position
         this.lastGlobalMousePos = { x: event.clientX, y: event.clientY };
-
-        // Get canvas bounds
         const canvasRect = this.canvas.getBoundingClientRect();
 
-        // Convert global coordinates to canvas-relative coordinates
         const canvasX = event.clientX - canvasRect.left;
         const canvasY = event.clientY - canvasRect.top;
 
-        // Get dimensions for checking row headers
         const dimensions = this.grid.getDimensions();
 
-        // Check if mouse is over a row header (left side of grid)
         const isOverRowHeader =
             canvasX >= 0 &&
             canvasX < dimensions.headerWidth &&
             canvasY >= dimensions.headerHeight;
 
-        // Check if mouse is outside canvas bounds
         const isOutsideCanvas =
             canvasX < 0 ||
             canvasX > canvasRect.width ||
             canvasY < 0 ||
             canvasY > canvasRect.height;
 
-        // Handle special case: when mouse is over row headers during cell selection
-        // This enables right-to-left scrolling
         if (isOverRowHeader && this.isMouseDown && this.isDragging) {
-            // Force scroll to the left when over row headers during cell selection
             this.autoScrollDirection = { x: -this.autoScrollSpeed, y: 0 };
-
-            // Start auto-scrolling if not already started
             if (!this.autoScrollTimer) {
                 this.startAutoScroll();
             }
-
-            // Continue extending selection based on current mouse position
             this.updateSelectionDuringAutoScroll();
         } else if (isOutsideCanvas) {
-            // Handle auto-scrolling when outside canvas
             this.handleAutoScrollOutsideCanvas(canvasX, canvasY, canvasRect);
         } else {
-            // If back inside canvas, let the normal canvas mouse move handler take over
             const syntheticEvent = {
                 offsetX: canvasX,
                 offsetY: canvasY,
@@ -443,10 +427,7 @@ export class DefaultHandler extends BaseHandler {
      * @param event - The mouse event
      */
     private handleGlobalMouseUp(event: MouseEvent): void {
-        // Clean up document listeners
         this.removeDocumentMouseTracking();
-
-        // Handle the mouse up normally
         this.handleMouseUp(event);
     }
 

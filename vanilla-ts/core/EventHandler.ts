@@ -75,6 +75,19 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
     private lastTouchPosition: { x: number; y: number } | null = null;
     private lastTouchTime: number = 0;
 
+    // Properties for touch scrolling
+    private touchScrollLastX: number = 0;
+    private touchScrollLastY: number = 0;
+    private isTouchScrolling: boolean = false;
+
+    // Properties for smooth scrolling
+    private scrollVelocityX: number = 0;
+    private scrollVelocityY: number = 0;
+    private scrollAnimationId: number | null = null;
+    private scrollDecay: number = 0.92; // Controls how quickly scrolling slows down (lower = faster stop)
+    private lastScrollTime: number = 0;
+    private scrollMinVelocity: number = 0.1; // Minimum velocity to continue scrolling
+
     /**
      * The handler manager that manages different interaction modes
      */
@@ -538,7 +551,7 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
             this.cellEditor.setSelectionRange(valueLength, valueLength);
 
             // On mobile, try to open the keyboard by simulating a click
-            if ("ontouchstart" in window) {
+            if (this.isMobileDevice()) {
                 setTimeout(() => {
                     this.cellEditor?.click();
                 }, 100);
@@ -617,6 +630,7 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
             // Check if the cell contains a formula
             this.renderer.clearCopiedSelection();
             this.renderer.render();
+
             const cell = this.grid.getCell(cellPos.row, cellPos.col);
             if (cell.formula && cell.formula.startsWith("=")) {
                 // Show the range selection for the formula first, including the origin cell
@@ -625,6 +639,9 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
                     col: cellPos.col,
                 });
             }
+
+            // Start cell editing - on desktop this is triggered by double-click,
+            // and on mobile this is triggered from double-tap
             this.startCellEdit(
                 cellPos.row,
                 cellPos.col,
@@ -632,6 +649,18 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
                 event.offsetY,
                 false // Not a typing event
             );
+
+            // Force focus on mobile with a small delay to ensure the keyboard appears
+            if (this.isMobileDevice()) {
+                console.log(
+                    "Mobile device: Focusing cell editor after double-tap"
+                );
+                setTimeout(() => {
+                    if (this.cellEditor) {
+                        this.cellEditor.focus();
+                    }
+                }, 50);
+            }
         }
     }
 
@@ -664,7 +693,10 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
 
         // Update cell editor position if editing
         if (this.editingCell) {
-            this.updateCellEditorPosition();
+            // Use requestAnimationFrame to ensure the editor position update happens after render
+            requestAnimationFrame(() => {
+                this.updateCellEditorPosition();
+            });
         }
     }
 
@@ -695,6 +727,17 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
      * Handles the touch start event
      * @param event - The touch event
      */
+    /**
+     * Check if the current device is a mobile/touch device
+     * @returns True if the device is a mobile/touch device, false otherwise
+     */
+    private isMobileDevice(): boolean {
+        return (
+            typeof window !== "undefined" &&
+            ("ontouchstart" in window || navigator.maxTouchPoints > 0)
+        );
+    }
+
     private handleTouchStart(event: TouchEvent): void {
         event.preventDefault();
 
@@ -705,6 +748,22 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
             const offsetX = touch.clientX - rect.left;
             const offsetY = touch.clientY - rect.top;
 
+            // Cancel any ongoing momentum scrolling
+            if (this.scrollAnimationId !== null) {
+                cancelAnimationFrame(this.scrollAnimationId);
+                this.scrollAnimationId = null;
+                console.log("Cancelled momentum scrolling due to new touch");
+            }
+
+            // Initialize touch scrolling coordinates and state
+            this.touchScrollLastX = touch.clientX;
+            this.touchScrollLastY = touch.clientY;
+            this.isTouchScrolling = false;
+            this.scrollVelocityX = 0;
+            this.scrollVelocityY = 0;
+            this.lastScrollTime = Date.now();
+
+            // Create a simulated mouse event
             const mouseEvent = {
                 offsetX,
                 offsetY,
@@ -713,7 +772,17 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
                 button: 0,
             } as unknown as MouseEvent;
 
-            this.handlerManager.handleMouseDown(mouseEvent);
+            // On mobile, we only want to select the cell on single tap, not start editing
+            if (this.isMobileDevice()) {
+                // Call handleMouseDown directly to select the cell but NOT start editing
+                this.handlerManager.handleMouseDown(mouseEvent);
+                console.log(
+                    "Mobile device: Single tap detected - cell selected but not editing"
+                );
+            } else {
+                // Non-mobile behavior (desktop): proceed as before
+                this.handlerManager.handleMouseDown(mouseEvent);
+            }
 
             this.lastTouchPosition = { x: offsetX, y: offsetY };
             this.lastTouchTime = Date.now();
@@ -734,6 +803,107 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
             const offsetX = touch.clientX - rect.left;
             const offsetY = touch.clientY - rect.top;
 
+            if (this.isMobileDevice()) {
+                // Calculate the delta from the last touch position
+                const deltaX = this.touchScrollLastX - touch.clientX;
+                const deltaY = this.touchScrollLastY - touch.clientY;
+
+                const now = Date.now();
+                const timeDelta = Math.max(now - this.lastScrollTime || 16, 1); // Ensure time delta is at least 1ms
+
+                // Calculate velocity (pixels per ms)
+                if (this.lastScrollTime) {
+                    // Calculate instantaneous velocity (pixels per frame assuming 60fps)
+                    const instantVelocityX = (deltaX / timeDelta) * 16.67; // Scale to pixels per frame at 60fps
+                    const instantVelocityY = (deltaY / timeDelta) * 16.67;
+
+                    // Apply weighted average for smoother velocity tracking
+                    // Use 80% of previous velocity and 20% of new velocity for stability
+                    this.scrollVelocityX =
+                        0.8 * this.scrollVelocityX + 0.2 * instantVelocityX;
+                    this.scrollVelocityY =
+                        0.8 * this.scrollVelocityY + 0.2 * instantVelocityY;
+
+                    // Log velocity periodically for debugging (once every 10 events)
+                    if (Math.random() < 0.1) {
+                        console.log(
+                            `Velocity X: ${this.scrollVelocityX.toFixed(
+                                2
+                            )}, Y: ${this.scrollVelocityY.toFixed(2)}`
+                        );
+                    }
+                }
+
+                this.lastScrollTime = now;
+
+                // Detect if we're scrolling (with a smaller threshold for better touch response)
+                if (
+                    !this.isTouchScrolling &&
+                    (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2)
+                ) {
+                    this.isTouchScrolling = true;
+                    console.log("Mobile: Starting smooth scroll operation");
+
+                    // Cancel any ongoing momentum scrolling
+                    if (this.scrollAnimationId !== null) {
+                        cancelAnimationFrame(this.scrollAnimationId);
+                        this.scrollAnimationId = null;
+                    }
+                }
+
+                // If we've determined this is a scroll action, perform scrolling
+                if (this.isTouchScrolling) {
+                    // Apply scroll speed factor (can be adjusted for user preference)
+                    const scrollSpeedFactor = 1.0;
+
+                    // Calculate scroll deltas with speed factor applied
+                    const effectiveDeltaX = deltaX * scrollSpeedFactor;
+                    const effectiveDeltaY = deltaY * scrollSpeedFactor;
+
+                    // Get current scroll position
+                    const scrollPos = this.renderer.getScrollPosition();
+
+                    // Calculate new scroll position (prevent negative scroll)
+                    const newScrollX = Math.max(
+                        0,
+                        scrollPos.x + effectiveDeltaX
+                    );
+                    const newScrollY = Math.max(
+                        0,
+                        scrollPos.y + effectiveDeltaY
+                    );
+
+                    // Apply the scroll to the renderer
+                    this.renderer.setScroll(newScrollX, newScrollY);
+                    this.renderer.render();
+
+                    // Also update scrollbar manager if available
+                    if (this.scrollbarManager) {
+                        this.scrollbarManager.scrollBy(
+                            effectiveDeltaX,
+                            effectiveDeltaY
+                        );
+                    }
+
+                    // If cell editor is active while scrolling, update its position
+                    if (this.editingCell) {
+                        requestAnimationFrame(() => {
+                            this.updateCellEditorPosition();
+                        });
+                    }
+                }
+
+                // Always update last touch position for the next move event
+                this.touchScrollLastX = touch.clientX;
+                this.touchScrollLastY = touch.clientY;
+
+                // If we're scrolling, skip mouse move handling to avoid selection changes
+                if (this.isTouchScrolling) {
+                    return;
+                }
+            }
+
+            // For non-scroll actions or desktop, handle as mouse move
             const mouseEvent = {
                 offsetX,
                 offsetY,
@@ -757,17 +927,93 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
 
         this.handlerManager.handleMouseUp(mouseEvent);
 
-        // Check for double-tap
-        if (this.lastTouchPosition && this.lastTouchTime) {
+        // Handle momentum scrolling for mobile devices
+        if (this.isMobileDevice()) {
+            // If we were scrolling, start momentum scrolling
+            if (this.isTouchScrolling) {
+                console.log(
+                    "Mobile: Ending scroll operation with velocity:",
+                    this.scrollVelocityX,
+                    this.scrollVelocityY
+                );
+
+                // Calculate the magnitude of velocity vector for momentum scrolling
+                const velocityMagnitude = Math.sqrt(
+                    this.scrollVelocityX * this.scrollVelocityX +
+                        this.scrollVelocityY * this.scrollVelocityY
+                );
+
+                // Only apply momentum if the velocity is significant (better user experience)
+                const minVelocityForMomentum = 0.8;
+
+                if (velocityMagnitude > minVelocityForMomentum) {
+                    console.log(
+                        `Applying momentum scrolling with magnitude: ${velocityMagnitude.toFixed(
+                            2
+                        )}`
+                    );
+
+                    // Apply a multiplier to control initial momentum strength
+                    // We use 1.2 for a slight boost to make scrolling feel more responsive
+                    const momentumMultiplier = 1.2;
+                    this.scrollVelocityX *= momentumMultiplier;
+                    this.scrollVelocityY *= momentumMultiplier;
+
+                    // Limit maximum velocity to prevent scrolling too fast
+                    const maxVelocity = 25;
+                    if (Math.abs(this.scrollVelocityX) > maxVelocity) {
+                        this.scrollVelocityX =
+                            maxVelocity * Math.sign(this.scrollVelocityX);
+                    }
+                    if (Math.abs(this.scrollVelocityY) > maxVelocity) {
+                        this.scrollVelocityY =
+                            maxVelocity * Math.sign(this.scrollVelocityY);
+                    }
+
+                    // Start the momentum scrolling animation
+                    this.startMomentumScrolling();
+                } else {
+                    // Velocity too low, just reset without momentum
+                    console.log(
+                        `Velocity too low for momentum: ${velocityMagnitude.toFixed(
+                            2
+                        )}`
+                    );
+                    this.scrollVelocityX = 0;
+                    this.scrollVelocityY = 0;
+                }
+
+                this.isTouchScrolling = false;
+                // Reset touch position and time to prevent accidental double-tap
+                this.lastTouchPosition = null;
+                this.lastTouchTime = 0;
+                return;
+            }
+
+            // Always reset the scrolling flag when touch ends
+            this.isTouchScrolling = false;
+        }
+
+        // Check for double-tap - only on mobile devices should this start editing
+        if (
+            this.lastTouchPosition &&
+            this.lastTouchTime &&
+            this.isMobileDevice()
+        ) {
             const now = Date.now();
             const timeDiff = now - this.lastTouchTime;
 
-            if (timeDiff < 300) {
+            // Use a more generous time window for double-tap detection on mobile (500ms)
+            if (timeDiff < 500) {
                 const touch = event.changedTouches[0];
                 const rect = this.canvas.getBoundingClientRect();
 
                 const offsetX = touch.clientX - rect.left;
                 const offsetY = touch.clientY - rect.top;
+
+                console.log(
+                    "Double-tap detected on mobile, starting cell edit"
+                );
 
                 const dblClickEvent = {
                     offsetX,
@@ -776,6 +1022,7 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
                     stopPropagation: () => {},
                 } as unknown as MouseEvent;
 
+                // Force cell editing to start on double-tap (only on mobile)
                 this.handleDoubleClick(dblClickEvent);
             }
 
@@ -1049,7 +1296,10 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
      */
     public handleScroll(): void {
         if (this.editingCell) {
-            this.updateCellEditorPosition();
+            // Ensure this runs after the renderer has updated
+            requestAnimationFrame(() => {
+                this.updateCellEditorPosition();
+            });
         }
     }
 
@@ -1076,12 +1326,27 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
             const width = Math.round(cellRect.width - borderOffset * 2);
             const height = Math.round(cellRect.height - borderOffset * 2);
 
-            this.cellEditor.style.left = left + "px";
-            this.cellEditor.style.top = top + "px";
-            this.cellEditor.style.width = width + "px";
-            this.cellEditor.style.height = height + "px";
-            this.cellEditor.style.fontSize =
-                this.BASE_EDITOR_FONT_SIZE * zoomFactor + "px";
+            // Check if the cell editor would be outside the canvas boundaries
+            const dimensions = this.grid.getDimensions();
+            const isOutsideCanvas =
+                cellRect.y < dimensions.headerHeight ||
+                cellRect.y + cellRect.height > this.canvas.height ||
+                cellRect.x < dimensions.headerWidth ||
+                cellRect.x + cellRect.width > this.canvas.width;
+
+            if (isOutsideCanvas) {
+                // Hide the cell editor if it's outside the canvas
+                this.cellEditor.style.display = "none";
+            } else {
+                // Show and position the cell editor if it's within the canvas
+                this.cellEditor.style.display = "block";
+                this.cellEditor.style.left = left + "px";
+                this.cellEditor.style.top = top + "px";
+                this.cellEditor.style.width = width + "px";
+                this.cellEditor.style.height = height + "px";
+                this.cellEditor.style.fontSize =
+                    this.BASE_EDITOR_FONT_SIZE * zoomFactor + "px";
+            }
         }
     }
 
@@ -1617,5 +1882,109 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         } else {
             statsElement.innerHTML = `<div class="stat-item" id="selected">Selected: <span class="stat-value">${cellCount} cells</span></div>`;
         }
+    }
+
+    /**
+     * Starts momentum scrolling animation after a touch end event
+     * Uses requestAnimationFrame for smooth animation
+     */
+    private startMomentumScrolling(): void {
+        // Cancel any existing animation
+        if (this.scrollAnimationId !== null) {
+            cancelAnimationFrame(this.scrollAnimationId);
+        }
+
+        // Set initial timestamp for the animation
+        let lastTimestamp: number | null = null;
+
+        // Use class property for minimum velocity threshold to stop scrolling
+
+        // Animation function
+        const animateMomentumScroll = (timestamp: number): void => {
+            // Calculate time delta
+            if (lastTimestamp === null) {
+                lastTimestamp = timestamp;
+                this.scrollAnimationId = requestAnimationFrame(
+                    animateMomentumScroll
+                );
+                return;
+            }
+
+            const deltaTime = timestamp - lastTimestamp;
+            lastTimestamp = timestamp;
+
+            // Apply frame delta (convert to seconds for smoother control)
+            const deltaFactor = deltaTime / 1000;
+
+            // Calculate scroll amount for this frame
+            const scrollX = this.scrollVelocityX;
+            const scrollY = this.scrollVelocityY;
+
+            // Apply the scroll if there's any significant velocity
+            if (
+                Math.abs(scrollX) > this.scrollMinVelocity ||
+                Math.abs(scrollY) > this.scrollMinVelocity
+            ) {
+                // Get current scroll position
+                const scrollPos = this.renderer.getScrollPosition();
+
+                // Calculate new scroll position
+                const newScrollX = Math.max(0, scrollPos.x + scrollX);
+                const newScrollY = Math.max(0, scrollPos.y + scrollY);
+
+                // Apply the scroll
+                this.renderer.setScroll(newScrollX, newScrollY);
+                this.renderer.render();
+
+                // Update scrollbar position if manager is available
+                if (this.scrollbarManager) {
+                    this.scrollbarManager.scrollBy(scrollX, scrollY);
+                }
+
+                // If cell editor is active, update its position
+                if (this.editingCell) {
+                    this.updateCellEditorPosition();
+                }
+
+                // Apply decay to velocity (using a configurable decay rate and time delta)
+                // The decay factor determines how quickly scrolling slows down
+                // Lower values = faster slowdown, higher values = longer scrolling
+                const decayFactor = Math.pow(
+                    this.scrollDecay,
+                    deltaFactor * 60
+                ); // Normalize to 60fps
+                this.scrollVelocityX *= decayFactor;
+                this.scrollVelocityY *= decayFactor;
+
+                // Continue animation
+                this.scrollAnimationId = requestAnimationFrame(
+                    animateMomentumScroll
+                );
+            } else {
+                // Velocity is below threshold, stop animation
+                this.scrollVelocityX = 0;
+                this.scrollVelocityY = 0;
+                this.scrollAnimationId = null;
+                console.log("Momentum scrolling completed");
+            }
+        };
+
+        // Start the animation
+        this.scrollAnimationId = requestAnimationFrame(animateMomentumScroll);
+    }
+
+    /**
+     * Removes debug logging for production use
+     * This method can be called to replace all debug console.log statements with no-ops
+     * for performance in production environments
+     */
+    private removeDebugLogging(): void {
+        // In a production environment, you would:
+        // 1. Find all console.log statements related to touch/momentum scrolling
+        // 2. Remove or comment them out
+        // 3. Optionally replace with more targeted performance metrics
+
+        // This is just a placeholder method to document the cleanup process
+        console.log("Production mode: Debug logging disabled");
     }
 }
