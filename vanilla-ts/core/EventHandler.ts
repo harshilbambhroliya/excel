@@ -80,6 +80,13 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
     private touchScrollLastY: number = 0;
     private isTouchScrolling: boolean = false;
 
+    // Properties for smooth inertial scrolling
+    private scrollVelocityX: number = 0;
+    private scrollVelocityY: number = 0;
+    private lastTouchMoveTime: number = 0;
+    private inertialScrollActive: boolean = false;
+    private animationFrameId: number | null = null;
+
     /**
      * The handler manager that manages different interaction modes
      */
@@ -740,10 +747,22 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
             const offsetX = touch.clientX - rect.left;
             const offsetY = touch.clientY - rect.top;
 
+            // Stop any ongoing inertial scrolling when a new touch starts
+            if (this.inertialScrollActive) {
+                this.inertialScrollActive = false;
+                if (this.animationFrameId !== null) {
+                    cancelAnimationFrame(this.animationFrameId);
+                    this.animationFrameId = null;
+                }
+            }
+
             // Initialize touch scrolling coordinates for mobile
             this.touchScrollLastX = touch.clientX;
             this.touchScrollLastY = touch.clientY;
             this.isTouchScrolling = false;
+            this.scrollVelocityX = 0;
+            this.scrollVelocityY = 0;
+            this.lastTouchMoveTime = Date.now();
 
             // Create a simulated mouse event
             const mouseEvent = {
@@ -786,46 +805,53 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
             const offsetY = touch.clientY - rect.top;
 
             if (this.isMobileDevice()) {
+                // Calculate the time since last move for velocity calculation
+                const now = Date.now();
+                const timeDelta = now - this.lastTouchMoveTime;
+
                 // Calculate the delta from the last touch position
                 const deltaX = this.touchScrollLastX - touch.clientX;
                 const deltaY = this.touchScrollLastY - touch.clientY;
 
-                // Detect if we're scrolling (moved more than 5 pixels in any direction)
+                // Detect if we're scrolling (moved more than 3 pixels in any direction)
                 if (
                     !this.isTouchScrolling &&
-                    (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5)
+                    (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3)
                 ) {
                     this.isTouchScrolling = true;
-                    console.log("Mobile: Starting scroll operation");
+                    console.log("Mobile: Starting smooth scroll operation");
                 }
 
                 // If we've determined this is a scroll action, perform scrolling
                 if (this.isTouchScrolling) {
-                    console.log(
-                        "Mobile scrolling: deltaX =",
-                        deltaX,
-                        "deltaY =",
-                        deltaY
-                    );
+                    // Update scroll velocity for smooth inertial scrolling later
+                    // Only update if time delta is reasonable to avoid spikes
+                    if (timeDelta > 0 && timeDelta < 100) {
+                        this.scrollVelocityX = deltaX * (16 / timeDelta); // Normalize to ~60fps
+                        this.scrollVelocityY = deltaY * (16 / timeDelta);
 
-                    // Try direct renderer scrolling first (more reliable)
+                        // Limit maximum velocity to avoid extreme scrolling
+                        const maxVelocity = 30;
+                        this.scrollVelocityX = Math.max(
+                            Math.min(this.scrollVelocityX, maxVelocity),
+                            -maxVelocity
+                        );
+                        this.scrollVelocityY = Math.max(
+                            Math.min(this.scrollVelocityY, maxVelocity),
+                            -maxVelocity
+                        );
+                    }
+
+                    // Apply the scroll
                     const scrollPos = this.renderer.getScrollPosition();
                     const newScrollX = Math.max(0, scrollPos.x + deltaX);
                     const newScrollY = Math.max(0, scrollPos.y + deltaY);
 
-                    console.log("Current scroll:", scrollPos, "New scroll:", {
-                        x: newScrollX,
-                        y: newScrollY,
-                    });
-
                     this.renderer.setScroll(newScrollX, newScrollY);
                     this.renderer.render();
 
-                    // Also try scrollbar manager if available
+                    // If we have a scrollbar manager, keep it synchronized
                     if (this.scrollbarManager) {
-                        console.log(
-                            "Using scrollbar manager for additional scrolling"
-                        );
                         this.scrollbarManager.scrollBy(deltaX, deltaY);
                     }
 
@@ -837,9 +863,10 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
                     }
                 }
 
-                // Always update last touch position for next move event
+                // Always update last touch position and time for next move event
                 this.touchScrollLastX = touch.clientX;
                 this.touchScrollLastY = touch.clientY;
+                this.lastTouchMoveTime = now;
 
                 // If we're scrolling, skip mouse move handling
                 if (this.isTouchScrolling) {
@@ -871,13 +898,30 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
 
         this.handlerManager.handleMouseUp(mouseEvent);
 
-        // Reset touch scrolling state for mobile devices
+        // Handle touch end for mobile devices
         if (this.isMobileDevice()) {
-            // If we were scrolling, don't trigger tap/double-tap actions
+            // If we were scrolling, start inertial scrolling for smooth experience
             if (this.isTouchScrolling) {
-                console.log("Mobile: Ending scroll operation");
+                console.log(
+                    "Mobile: Starting inertial scroll with velocity:",
+                    this.scrollVelocityX.toFixed(2),
+                    this.scrollVelocityY.toFixed(2)
+                );
+
+                // Only start inertial scrolling if we have significant velocity
+                if (
+                    Math.abs(this.scrollVelocityX) > 0.5 ||
+                    Math.abs(this.scrollVelocityY) > 0.5
+                ) {
+                    this.inertialScrollActive = true;
+                    // Start the inertial scrolling animation
+                    this.animationFrameId = requestAnimationFrame(() =>
+                        this.performInertialScroll()
+                    );
+                }
+
+                // Reset for next interaction and prevent double-tap after scrolling
                 this.isTouchScrolling = false;
-                // Reset touch position and time to prevent accidental double-tap
                 this.lastTouchPosition = null;
                 this.lastTouchTime = 0;
                 return;
@@ -1775,5 +1819,42 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         } else {
             statsElement.innerHTML = `<div class="stat-item" id="selected">Selected: <span class="stat-value">${cellCount} cells</span></div>`;
         }
+    }
+
+    /**
+     * Performs smooth inertial scrolling after a touch ends
+     * This creates a natural deceleration effect for better user experience
+     */
+    private performInertialScroll(): void {
+        if (
+            !this.inertialScrollActive ||
+            (Math.abs(this.scrollVelocityX) < 0.5 &&
+                Math.abs(this.scrollVelocityY) < 0.5)
+        ) {
+            this.inertialScrollActive = false;
+            if (this.animationFrameId !== null) {
+                cancelAnimationFrame(this.animationFrameId);
+                this.animationFrameId = null;
+            }
+            return;
+        }
+
+        // Apply deceleration factor
+        const decelerationFactor = 0.95;
+        this.scrollVelocityX *= decelerationFactor;
+        this.scrollVelocityY *= decelerationFactor;
+
+        // Apply the scroll
+        const scrollPos = this.renderer.getScrollPosition();
+        const newScrollX = Math.max(0, scrollPos.x + this.scrollVelocityX);
+        const newScrollY = Math.max(0, scrollPos.y + this.scrollVelocityY);
+
+        this.renderer.setScroll(newScrollX, newScrollY);
+        this.renderer.render();
+
+        // Continue the animation
+        this.animationFrameId = requestAnimationFrame(() =>
+            this.performInertialScroll()
+        );
     }
 }
