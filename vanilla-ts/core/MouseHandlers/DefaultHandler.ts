@@ -41,7 +41,14 @@ export class DefaultHandler extends BaseHandler {
             event.offsetY < dimensions.headerHeight
         ) {
             this.grid.clearAllSelections();
-            this.grid.selectAll();
+            this.grid.getSelection().start(0, 0);
+            this.grid
+                .getSelection()
+                .extend(
+                    this.grid.getCurrentRows() - 1,
+                    this.grid.getCurrentCols() - 1
+                );
+            this.context.highlightHeadersForSelection();
             this.renderer.render();
             this.context.updateSelectionStats();
             return true;
