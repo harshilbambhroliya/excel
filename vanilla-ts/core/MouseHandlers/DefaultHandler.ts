@@ -247,21 +247,32 @@ export class DefaultHandler extends BaseHandler {
                 currentScroll.y + this.autoScrollDirection.y
             );
 
+            // For smoother up-down selection, we'll update the selection before scrolling
+            // This is particularly important when selecting from bottom to top
+            if (this.autoScrollDirection.y < 0) {
+                // When scrolling up, update selection first
+                this.updateSelectionDuringAutoScroll();
+            }
+
             // Apply the scroll
             if (this.scrollbarManager) {
                 this.scrollbarManager.setScroll(newScrollX, newScrollY);
             } else {
                 this.renderer.setScroll(newScrollX, newScrollY);
-                this.renderer.render();
             }
+
+            // For other scroll directions, update selection after scrolling
+            if (this.autoScrollDirection.y >= 0) {
+                this.updateSelectionDuringAutoScroll();
+            }
+
+            // Always render at the end to show both selection and scroll changes
+            this.renderer.render();
 
             // Update cell editor position if editing
             if (this.context.editingCell) {
                 // Would need to expose updateCellEditorPosition in context
             }
-
-            // Continue extending selection based on current mouse position
-            this.updateSelectionDuringAutoScroll();
         }, 16); // ~60fps
     }
 
@@ -292,10 +303,42 @@ export class DefaultHandler extends BaseHandler {
         const canvasX = this.lastGlobalMousePos.x - canvasRect.left;
         const canvasY = this.lastGlobalMousePos.y - canvasRect.top;
 
-        // If we can calculate a valid cell position from the actual mouse coordinates, use that
+        // Store previous selection end coordinates
+        const prevEndRow = selection.endRow;
+        const prevEndCol = selection.endCol;
+
+        // Adjust the coordinates based on auto-scroll direction
+        // This helps predict the cell the user is trying to select
+        let adjustedCanvasX = canvasX;
+        let adjustedCanvasY = canvasY;
+
+        // If we're scrolling up and mouse is above the viewport
+        if (this.autoScrollDirection.y < 0 && canvasY < 0) {
+            // Project position based on scroll direction and speed
+            adjustedCanvasY = -5; // Just above the top edge but still valid
+        }
+        // If we're scrolling down and mouse is below the viewport
+        else if (
+            this.autoScrollDirection.y > 0 &&
+            canvasY > canvasRect.height
+        ) {
+            adjustedCanvasY = canvasRect.height + 5; // Just below the bottom edge
+        }
+
+        // Similarly for horizontal scrolling
+        if (this.autoScrollDirection.x < 0 && canvasX < 0) {
+            adjustedCanvasX = -5;
+        } else if (
+            this.autoScrollDirection.x > 0 &&
+            canvasX > canvasRect.width
+        ) {
+            adjustedCanvasX = canvasRect.width + 5;
+        }
+
+        // Try to get a cell at the adjusted position
         const cellPos = this.renderer.getCellAtPosition(
-            Math.max(0, Math.min(canvasRect.width, canvasX)),
-            Math.max(0, Math.min(canvasRect.height, canvasY))
+            Math.max(0, Math.min(canvasRect.width, adjustedCanvasX)),
+            Math.max(0, Math.min(canvasRect.height, adjustedCanvasY))
         );
 
         let targetRow = selection.endRow;
@@ -306,27 +349,51 @@ export class DefaultHandler extends BaseHandler {
             targetRow = cellPos.row;
             targetCol = cellPos.col;
         } else {
-            // Fallback to directional extension based on scroll direction
+            // For smoother selection experience, be more aggressive with scrolling direction
+            // This makes selection feel more responsive, especially when going up
             if (this.autoScrollDirection.y > 0) {
                 // Scrolling down, extend selection downward
                 targetRow = Math.min(
                     this.grid.getCurrentRows() - 1,
-                    targetRow + 1
+                    targetRow +
+                        Math.max(
+                            1,
+                            Math.abs(Math.round(this.autoScrollDirection.y / 5))
+                        )
                 );
             } else if (this.autoScrollDirection.y < 0) {
                 // Scrolling up, extend selection upward
-                targetRow = Math.max(0, targetRow - 1);
+                // More aggressive scroll rate when going up for better user experience
+                targetRow = Math.max(
+                    0,
+                    targetRow -
+                        Math.max(
+                            1,
+                            Math.abs(Math.round(this.autoScrollDirection.y / 3))
+                        )
+                );
             }
 
             if (this.autoScrollDirection.x > 0) {
                 // Scrolling right, extend selection rightward
                 targetCol = Math.min(
                     this.grid.getCurrentCols() - 1,
-                    targetCol + 1
+                    targetCol +
+                        Math.max(
+                            1,
+                            Math.abs(Math.round(this.autoScrollDirection.x / 5))
+                        )
                 );
             } else if (this.autoScrollDirection.x < 0) {
                 // Scrolling left, extend selection leftward
-                targetCol = Math.max(0, targetCol - 1);
+                targetCol = Math.max(
+                    0,
+                    targetCol -
+                        Math.max(
+                            1,
+                            Math.abs(Math.round(this.autoScrollDirection.x / 5))
+                        )
+                );
             }
         }
 
@@ -337,7 +404,9 @@ export class DefaultHandler extends BaseHandler {
             this.grid.clearHeaderSelections();
             this.context.highlightHeadersForSelection();
 
-            this.renderer.render();
+            // Don't render here, as the main loop will handle rendering
+            // This prevents multiple renders per frame and ensures selection
+            // and scrolling appear more synchronized
             this.context.updateSelectionStats();
         }
     }

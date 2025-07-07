@@ -1412,14 +1412,46 @@ export class Renderer {
         this.ctx.fillStyle = this.isFormulaRangeSelection
             ? "#0078d4"
             : "#1c6239";
+        if (this.isFormulaRangeSelection) {
+            // Top-left corner
+            this.ctx.fillRect(
+                pixelAlignedX - 3,
+                pixelAlignedY - 3,
+                handleSize,
+                handleSize
+            );
 
-        // Bottom-right corner
-        this.ctx.fillRect(
-            pixelAlignedX - 0.5 + pixelAlignedWidth - handleSize / 2,
-            pixelAlignedY - 0.5 + pixelAlignedHeight - handleSize / 2,
-            handleSize,
-            handleSize
-        );
+            // Top-right corner
+            this.ctx.fillRect(
+                pixelAlignedX - 1 + pixelAlignedWidth - handleSize / 2,
+                pixelAlignedY - 3,
+                handleSize,
+                handleSize
+            );
+
+            // Bottom-left corner
+            this.ctx.fillRect(
+                pixelAlignedX - 3,
+                pixelAlignedY - 1 + pixelAlignedHeight - handleSize / 2,
+                handleSize,
+                handleSize
+            );
+            // Bottom-right corner
+            this.ctx.fillRect(
+                pixelAlignedX - 0.5 + pixelAlignedWidth - handleSize / 2,
+                pixelAlignedY - 0.5 + pixelAlignedHeight - handleSize / 2,
+                handleSize,
+                handleSize
+            );
+        } else {
+            // Bottom-right corner
+            this.ctx.fillRect(
+                pixelAlignedX - 0.5 + pixelAlignedWidth - handleSize / 2,
+                pixelAlignedY - 0.5 + pixelAlignedHeight - handleSize / 2,
+                handleSize,
+                handleSize
+            );
+        }
 
         // Render origin cell if it exists and is outside the current selection
         if (this.originCell) {
