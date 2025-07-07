@@ -623,10 +623,28 @@ export class Renderer {
             if (!rowObj) continue;
 
             if (rowObj.isSelected) {
-                // Excel uses a specific blue for selected headers
-                this.ctx.fillStyle = "#CAEAD8";
-                this.ctx.fillRect(0, yPos, dimensions.headerWidth, rowHeight);
-                this.ctx.fillStyle = "#0F703B"; // Excel uses green for selection text
+                // Different styles for direct vs. indirect selection
+                if (rowObj.isDirectlySelected) {
+                    // Dark green for directly selected headers (when clicked)
+                    this.ctx.fillStyle = "#0F703B";
+                    this.ctx.fillRect(
+                        0,
+                        yPos,
+                        dimensions.headerWidth,
+                        rowHeight
+                    );
+                    this.ctx.fillStyle = "#FFFFFF"; // White text for better contrast
+                } else {
+                    // Light green for indirectly selected headers (via cell selection)
+                    this.ctx.fillStyle = "#CAEAD8";
+                    this.ctx.fillRect(
+                        0,
+                        yPos,
+                        dimensions.headerWidth,
+                        rowHeight
+                    );
+                    this.ctx.fillStyle = "#0F703B"; // Dark green text
+                }
                 const selectedHeaderFontSize = Math.max(
                     16 * this.zoomFactor,
                     9
@@ -728,10 +746,29 @@ export class Renderer {
             if (!colObj) continue;
 
             if (colObj.isSelected) {
-                // Excel uses a specific blue for selected headers
-                this.ctx.fillStyle = "#CAEAD8";
-                this.ctx.fillRect(xPos, 0, colWidth, dimensions.headerHeight);
-                this.ctx.fillStyle = "#0F703B"; // Excel uses green for selection text
+                // Different styles for direct vs. indirect selection
+                if (colObj.isDirectlySelected) {
+                    // Dark green for directly selected headers (when clicked)
+                    this.ctx.fillStyle = "#0F703B";
+                    this.ctx.fillRect(
+                        xPos,
+                        0,
+                        colWidth,
+                        dimensions.headerHeight
+                    );
+                    this.ctx.fillStyle = "#FFFFFF"; // White text for better contrast
+                } else {
+                    // Light green for indirectly selected headers (via cell selection)
+                    this.ctx.fillStyle = "#CAEAD8";
+                    this.ctx.fillRect(
+                        xPos,
+                        0,
+                        colWidth,
+                        dimensions.headerHeight
+                    );
+                    this.ctx.fillStyle = "#0F703B"; // Dark green text
+                }
+
                 const selectedColHeaderFontSize = Math.max(
                     16 * this.zoomFactor,
                     9

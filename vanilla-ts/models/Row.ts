@@ -5,12 +5,15 @@
 export class Row {
     /** @type {number} The height of the row in pixels */
     public height: number;
-    
+
     /** @type {number} The index of the row in the grid */
     public index: number;
-    
+
     /** @type {boolean} Whether the row is currently selected */
     public isSelected: boolean = false;
+
+    /** @type {boolean} Whether the row was directly clicked by the user */
+    public isDirectlySelected: boolean = false;
 
     /**
      * Initializes a new Row instance
@@ -40,9 +43,13 @@ export class Row {
 
     /**
      * Marks the row as selected
+     * @param {boolean} direct Whether the selection was made directly by clicking the header
      */
-    public select(): void {
+    public select(direct: boolean = false): void {
         this.isSelected = true;
+        if (direct) {
+            this.isDirectlySelected = true;
+        }
     }
 
     /**
@@ -50,5 +57,6 @@ export class Row {
      */
     public deselect(): void {
         this.isSelected = false;
+        this.isDirectlySelected = false;
     }
 }

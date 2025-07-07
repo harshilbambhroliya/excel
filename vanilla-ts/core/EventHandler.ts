@@ -322,13 +322,15 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         const colObj = this.grid.getColumn(col);
 
         // Highlight the row header without selecting the entire row
+        // Use false for direct parameter to indicate indirect selection via cell selection
         if (rowObj) {
-            rowObj.select();
+            rowObj.select(false);
         }
 
         // Highlight the column header without selecting the entire column
+        // Use false for direct parameter to indicate indirect selection via cell selection
         if (colObj) {
-            colObj.select();
+            colObj.select(false);
         }
     }
 
@@ -360,7 +362,8 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
             if (!selectedRows.has(row)) {
                 const rowObj = this.grid.getRow(row);
                 if (rowObj) {
-                    rowObj.select();
+                    // Use false for direct parameter to indicate indirect selection via cell selection
+                    rowObj.select(false);
                     selectedRows.add(row);
                 }
             }
@@ -371,7 +374,8 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
             if (!selectedCols.has(col)) {
                 const colObj = this.grid.getColumn(col);
                 if (colObj) {
-                    colObj.select();
+                    // Use false for direct parameter to indicate indirect selection via cell selection
+                    colObj.select(false);
                     selectedCols.add(col);
                 }
             }

@@ -77,9 +77,9 @@ export class HeaderDragHandler extends BaseHandler {
 
         // Select the starting row/column when mouse is actually pressed
         if (this.headerDragType === "row") {
-            this.grid.selectRow(this.headerDragStart);
+            this.grid.selectRow(this.headerDragStart, true); // true = direct selection (user clicked)
         } else {
-            this.grid.selectColumn(this.headerDragStart);
+            this.grid.selectColumn(this.headerDragStart, true); // true = direct selection (user clicked)
         }
         this.context.highlightHeadersForSelection();
         this.context.updateSelectionStats();
@@ -131,7 +131,11 @@ export class HeaderDragHandler extends BaseHandler {
             // Always update selection, whether we're at an edge or within bounds
             if (currentRow >= 0 && currentRow < this.grid.getCurrentRows()) {
                 // Select the range of rows
-                this.grid.selectRowRange(this.headerDragStart, currentRow);
+                this.grid.selectRowRange(
+                    this.headerDragStart,
+                    currentRow,
+                    true
+                ); // true = direct selection
                 // Highlight headers for the current selection range
                 this.context.highlightHeadersForSelection();
             }
@@ -169,7 +173,11 @@ export class HeaderDragHandler extends BaseHandler {
             // Always update selection, whether we're at an edge or within bounds
             if (currentCol >= 0 && currentCol < this.grid.getCurrentCols()) {
                 // Select the range of columns
-                this.grid.selectColumnRange(this.headerDragStart, currentCol);
+                this.grid.selectColumnRange(
+                    this.headerDragStart,
+                    currentCol,
+                    true
+                ); // true = direct selection
                 this.context.highlightHeadersForSelection();
             }
         }

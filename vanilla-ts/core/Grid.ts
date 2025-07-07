@@ -301,11 +301,11 @@ export class Grid {
      * Selects an entire row
      * @param {number} rowIndex The row index to select
      */
-    public selectRow(rowIndex: number): void {
+    public selectRow(rowIndex: number, direct: boolean = false): void {
         this.clearAllSelections();
         if (rowIndex >= 0 && rowIndex < this.rows.length) {
             // Select the row header
-            this.rows[rowIndex].select();
+            this.rows[rowIndex].select(direct);
 
             // Select all cells in the row by updating the selection
             this.selection.start(rowIndex, 0);
@@ -323,11 +323,11 @@ export class Grid {
      * Selects an entire column
      * @param {number} colIndex The column index to select
      */
-    public selectColumn(colIndex: number): void {
+    public selectColumn(colIndex: number, direct: boolean = false): void {
         this.clearAllSelections();
         if (colIndex >= 0 && colIndex < this.columns.length) {
             // Select the column header
-            this.columns[colIndex].select();
+            this.columns[colIndex].select(direct);
 
             // Select all cells in the column by updating the selection
             this.selection.start(0, colIndex);
@@ -575,7 +575,11 @@ export class Grid {
      * @param {number} startRowIndex The starting row index to select
      * @param {number} endRowIndex The ending row index to select
      */
-    public selectRowRange(startRowIndex: number, endRowIndex: number): void {
+    public selectRowRange(
+        startRowIndex: number,
+        endRowIndex: number,
+        direct: boolean = false
+    ): void {
         this.clearAllSelections();
 
         // Ensure valid indices
@@ -587,7 +591,7 @@ export class Grid {
 
         // Select all rows in the range
         for (let row = minRow; row <= maxRow; row++) {
-            this.rows[row].select();
+            this.rows[row].select(direct);
         }
 
         // Set the selection to cover all cells in the row range
@@ -605,7 +609,11 @@ export class Grid {
      * @param {number} startColIndex The starting column index to select
      * @param {number} endColIndex The ending column index to select
      */
-    public selectColumnRange(startColIndex: number, endColIndex: number): void {
+    public selectColumnRange(
+        startColIndex: number,
+        endColIndex: number,
+        direct: boolean = false
+    ): void {
         this.clearAllSelections();
 
         // Ensure valid indices
@@ -617,7 +625,7 @@ export class Grid {
 
         // Select all columns in the range
         for (let col = minCol; col <= maxCol; col++) {
-            this.columns[col].select();
+            this.columns[col].select(direct);
         }
 
         // Set the selection to cover all cells in the column range

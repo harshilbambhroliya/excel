@@ -5,13 +5,16 @@
 export class Column {
     /** @type {number} The width of the column in pixels */
     public width: number;
-    
+
     /** @type {number} The index of the column in the grid */
     public index: number;
-    
+
     /** @type {boolean} Whether the column is currently selected */
     public isSelected: boolean = false;
-    
+
+    /** @type {boolean} Whether the column was directly clicked by the user */
+    public isDirectlySelected: boolean = false;
+
     /** @type {string} The header label for the column (e.g., 'A', 'B', 'AA') */
     public header: string;
 
@@ -32,14 +35,14 @@ export class Column {
      * @returns {string} The generated column header label
      */
     private generateColumnHeader(index: number): string {
-        let result = '';
+        let result = "";
         let temp = index;
-        
+
         do {
             result = String.fromCharCode(65 + (temp % 26)) + result;
             temp = Math.floor(temp / 26) - 1;
         } while (temp >= 0);
-        
+
         return result;
     }
 
@@ -62,9 +65,13 @@ export class Column {
 
     /**
      * Marks the column as selected
+     * @param {boolean} direct Whether the selection was made directly by clicking the header
      */
-    public select(): void {
+    public select(direct: boolean = false): void {
         this.isSelected = true;
+        if (direct) {
+            this.isDirectlySelected = true;
+        }
     }
 
     /**
@@ -72,5 +79,6 @@ export class Column {
      */
     public deselect(): void {
         this.isSelected = false;
+        this.isDirectlySelected = false;
     }
 }
