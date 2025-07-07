@@ -1124,8 +1124,22 @@ export class Renderer {
                     if (textDecoration === "line-through") {
                         const strikeY = Math.floor(textY) + 0.5;
                         this.ctx.beginPath();
-                        this.ctx.moveTo(textX, strikeY);
-                        this.ctx.lineTo(textX + metrics.width, strikeY);
+
+                        // Adjust line positions based on text alignment
+                        if (this.ctx.textAlign === "right") {
+                            // For right-aligned text, draw from (textX - width) to textX
+                            this.ctx.moveTo(textX - metrics.width, strikeY);
+                            this.ctx.lineTo(textX, strikeY);
+                        } else if (this.ctx.textAlign === "center") {
+                            // For center-aligned text, draw from (textX - width/2) to (textX + width/2)
+                            this.ctx.moveTo(textX - metrics.width / 2, strikeY);
+                            this.ctx.lineTo(textX + metrics.width / 2, strikeY);
+                        } else {
+                            // For left-aligned text, draw from textX to (textX + width)
+                            this.ctx.moveTo(textX, strikeY);
+                            this.ctx.lineTo(textX + metrics.width, strikeY);
+                        }
+
                         this.ctx.strokeStyle =
                             cell.style.textColor || "#000000";
                         this.ctx.lineWidth = Math.max(1, scaledFontSize / 15);
@@ -1135,8 +1149,34 @@ export class Renderer {
                         const underlineY =
                             Math.floor(textY + scaledFontSize * 0.2) + 0.5; // Adjust for line-through position
                         this.ctx.beginPath();
-                        this.ctx.moveTo(textX, underlineY + 3);
-                        this.ctx.lineTo(textX + metrics.width, underlineY + 3);
+
+                        // Adjust line positions based on text alignment
+                        if (this.ctx.textAlign === "right") {
+                            // For right-aligned text, draw from (textX - width) to textX
+                            this.ctx.moveTo(
+                                textX - metrics.width,
+                                underlineY + 3
+                            );
+                            this.ctx.lineTo(textX, underlineY + 3);
+                        } else if (this.ctx.textAlign === "center") {
+                            // For center-aligned text, draw from (textX - width/2) to (textX + width/2)
+                            this.ctx.moveTo(
+                                textX - metrics.width / 2,
+                                underlineY + 3
+                            );
+                            this.ctx.lineTo(
+                                textX + metrics.width / 2,
+                                underlineY + 3
+                            );
+                        } else {
+                            // For left-aligned text, draw from textX to (textX + width)
+                            this.ctx.moveTo(textX, underlineY + 3);
+                            this.ctx.lineTo(
+                                textX + metrics.width,
+                                underlineY + 3
+                            );
+                        }
+
                         this.ctx.strokeStyle =
                             cell.style.textColor || "#000000";
                         this.ctx.lineWidth = Math.max(1, scaledFontSize / 15);
