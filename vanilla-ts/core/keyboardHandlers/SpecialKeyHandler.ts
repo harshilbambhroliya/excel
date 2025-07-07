@@ -106,6 +106,11 @@ export class SpecialKeyHandler extends BaseKeyboardHandler {
         selection.start(selection.startRow, newCol);
         this.context.renderer.render();
         this.context.updateSelectionStats();
+        this.context.handleSelectionAfterKeyDown(
+            selection,
+            selection.startRow,
+            newCol
+        );
         return true;
     }
     /**

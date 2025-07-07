@@ -31,7 +31,7 @@ export class Renderer {
     /**
      * The viewport of the grid
      */
-    private viewport: IRect = { x: 0, y: 0, width: 0, height: 0 };
+    public viewport: IRect = { x: 0, y: 0, width: 0, height: 0 };
     /**
      * The device pixel ratio
      */
@@ -1792,8 +1792,8 @@ export class Renderer {
         // If zooming out, we need to check if we should expand the grid
         // since more content becomes visible
         if (newZoom < oldZoom) {
-            this.calculatePositions(); // Recalculate positions for the new zoom level
-            this.checkAndExpandGridOnZoom(); // Check if we need to add more rows/columns
+            this.calculatePositions();
+            this.checkAndExpandGridOnZoom();
         }
 
         // Update scrollbars and render
