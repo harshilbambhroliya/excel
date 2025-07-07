@@ -127,6 +127,9 @@ class ExcelApp {
         const italicBtn = document.getElementById("italic");
         const underlineBtn = document.getElementById("underline");
         const strikethroughBtn = document.getElementById("strikethrough");
+        const alignLeftBtn = document.getElementById("alignLeft");
+        const alignCenterBtn = document.getElementById("alignCenter");
+        const alignRightBtn = document.getElementById("alignRight");
         const removeRowBtn = document.getElementById("removeRow");
         const removeColumnBtn = document.getElementById("removeColumn");
 
@@ -296,6 +299,56 @@ class ExcelApp {
             strikethroughBtn.addEventListener("click", () => {
                 strikethroughBtn.classList.toggle("active");
                 this.eventHandler!.toggleStyle("strikethrough");
+            });
+        }
+
+        // Text alignment button handlers
+        if (alignLeftBtn && this.eventHandler) {
+            alignLeftBtn.addEventListener("click", () => {
+                // Deactivate other alignment buttons and activate this one
+                alignCenterBtn?.classList.remove("active");
+                alignRightBtn?.classList.remove("active");
+                alignLeftBtn.classList.add("active");
+                this.eventHandler!.toggleStyle("alignLeft");
+            });
+        }
+
+        if (alignCenterBtn && this.eventHandler) {
+            alignCenterBtn.addEventListener("click", () => {
+                // Deactivate other alignment buttons and activate this one
+                alignLeftBtn?.classList.remove("active");
+                alignRightBtn?.classList.remove("active");
+                alignCenterBtn.classList.add("active");
+                this.eventHandler!.toggleStyle("alignCenter");
+            });
+        }
+
+        if (alignRightBtn && this.eventHandler) {
+            alignRightBtn.addEventListener("click", () => {
+                // Deactivate other alignment buttons and activate this one
+                alignLeftBtn?.classList.remove("active");
+                alignCenterBtn?.classList.remove("active");
+                alignRightBtn.classList.add("active");
+                this.eventHandler!.toggleStyle("alignRight");
+            });
+        }
+
+        // Text alignment handlers
+        if (alignLeftBtn && this.eventHandler) {
+            alignLeftBtn.addEventListener("click", () => {
+                this.eventHandler!.toggleStyle("alignLeft");
+            });
+        }
+
+        if (alignCenterBtn && this.eventHandler) {
+            alignCenterBtn.addEventListener("click", () => {
+                this.eventHandler!.toggleStyle("alignCenter");
+            });
+        }
+
+        if (alignRightBtn && this.eventHandler) {
+            alignRightBtn.addEventListener("click", () => {
+                this.eventHandler!.toggleStyle("alignRight");
             });
         }
     }

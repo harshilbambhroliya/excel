@@ -795,3 +795,36 @@ body {
         background-position: 8px 0, 0 8px, -8px 100%, 100% -8px;
     }
 }
+
+.toolbar button.active {
+    background-color: #145a38;
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+/* Ensure alignment buttons are grouped properly */
+.align-group {
+    display: flex;
+    gap: 2px;
+}
+
+/* Style for alignment button icons */
+.align-group button i {
+    font-size: 14px;
+}
+
+.align-group button {
+    min-width: 32px;
+    padding: 6.5px 10px;
+}
+
+.align-group button i {
+    margin-right: 0;
+    width: 14px;
+    font-size: 12px;
+    text-align: center;
+}
+
+.align-group .active {
+    background-color: #155d35;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.15);
+}

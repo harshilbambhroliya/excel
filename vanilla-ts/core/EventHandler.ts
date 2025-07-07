@@ -263,6 +263,9 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         const statsElement = document.getElementById("selectionStats");
         if (!statsElement) return;
 
+        // Update formatting buttons state, including text alignment
+        this.updateAlignmentButtons();
+
         const selection = this.grid.getSelection();
         if (!selection.isActive) {
             statsElement.textContent = "";
@@ -1402,7 +1405,14 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
      * @param style - The style to be toggled
      */
     public toggleStyle(
-        style: "bold" | "italic" | "underline" | "strikethrough"
+        style:
+            | "bold"
+            | "italic"
+            | "underline"
+            | "strikethrough"
+            | "alignLeft"
+            | "alignCenter"
+            | "alignRight"
     ): void {
         const selection = this.grid.getSelection();
         if (!selection.isActive) return;
@@ -1413,8 +1423,20 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         positions.forEach((pos) => {
             const cell = this.grid.getCell(pos.row, pos.col);
             const currentStyle = cell.getStyle();
+
+            // Handle text alignment separately
+            let textAlign = currentStyle.textAlign || "left";
+            if (style === "alignLeft") {
+                textAlign = "left";
+            } else if (style === "alignCenter") {
+                textAlign = "center";
+            } else if (style === "alignRight") {
+                textAlign = "right";
+            }
+
             const newStyle = {
                 ...currentStyle,
+                textAlign: textAlign,
                 fontWeight:
                     style === "bold"
                         ? currentStyle.fontWeight === "bold"
@@ -1453,7 +1475,46 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         if (compositeCommand.count() > 0) {
             this.commandManager.executeCommand(compositeCommand);
             this.renderer.render();
+            // updateSelectionStats will also update alignment button states
             this.updateSelectionStats();
+        }
+    }
+
+    /**
+     * Updates the text alignment button states based on the selected cell's alignment
+     * Should be called when selection changes
+     */
+    public updateAlignmentButtons(): void {
+        const alignLeftBtn = document.getElementById("alignLeft");
+        const alignCenterBtn = document.getElementById("alignCenter");
+        const alignRightBtn = document.getElementById("alignRight");
+
+        // Reset all buttons first
+        alignLeftBtn?.classList.remove("active");
+        alignCenterBtn?.classList.remove("active");
+        alignRightBtn?.classList.remove("active");
+
+        // If no valid selection, exit early
+        const selection = this.grid.getSelection();
+        if (!selection.isActive) return;
+
+        // Get the reference cell (first cell in selection)
+        const cell = this.grid.getCell(selection.startRow, selection.startCol);
+        if (!cell) return;
+
+        // Activate the corresponding button based on cell's text alignment
+        const textAlign = cell.style.textAlign || "left"; // Default to left if not set
+
+        switch (textAlign) {
+            case "left":
+                alignLeftBtn?.classList.add("active");
+                break;
+            case "center":
+                alignCenterBtn?.classList.add("active");
+                break;
+            case "right":
+                alignRightBtn?.classList.add("active");
+                break;
         }
     }
 
