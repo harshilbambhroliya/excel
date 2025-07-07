@@ -380,8 +380,8 @@ export class CtrlKeyHandler extends BaseKeyboardHandler {
                                     /^-?\d+(\.\d+)?$/.test(trimmedStr) || // Simple number like 123 or -123.45
                                     /^[$€£¥]\d+(\.\d+)?$/.test(trimmedStr) || // Currency format like $123.45
                                     /^\d+(\.\d+)?%$/.test(trimmedStr) || // Percentage format like 50.5%
-                                    /^-?[\d,]+(\.\d+)?$/.test(trimmedStr)
-                                ); // Number with commas like 1,234.56
+                                    /^-?[\d,]+(\.\d+)?$/.test(trimmedStr) // Number with commas like 1,234.56
+                                ); 
                             };
 
                             // Detect if this is a numeric value and parse appropriately
