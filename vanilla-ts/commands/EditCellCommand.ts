@@ -66,6 +66,7 @@ export class EditCellCommand extends Command {
     public execute(): void {
         const cell = this.grid.getCell(this.row, this.col);
         cell.setValue(this.newValue, this.formula);
+
         if (this.style) {
             this.grid.setCellStyle(this.row, this.col, this.style);
         }

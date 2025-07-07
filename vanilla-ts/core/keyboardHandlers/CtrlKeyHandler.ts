@@ -4,6 +4,7 @@ import { BaseKeyboardHandler } from "./BaseKeyboardHandler.js";
 import { Selection } from "../../models/Selection.js";
 import { CompositeCommand } from "../../commands/Command.js";
 import { EditCellCommand } from "../../commands/EditCellCommand.js";
+import { Cell } from "../../models/Cell.js";
 
 /**
  * Handles Ctrl key combinations (Ctrl+Arrow, Ctrl+Home/End, Ctrl+C/X/V/A/Z/Y)
@@ -280,9 +281,35 @@ export class CtrlKeyHandler extends BaseKeyboardHandler {
             let values: string[] = [];
             let text = "";
 
+            // Store cell metadata for internal use
+            const cellMetadata: Array<{
+                value: string;
+                type: "string" | "number" | "boolean" | "date";
+                isNumeric: boolean;
+                row: number;
+                col: number;
+                style: any;
+            }> = [];
+
             range.forEach((pos) => {
                 const cell = this.context.grid.getCell(pos.row, pos.col);
                 const value = cell.getDisplayValue();
+
+                // Store metadata about this cell
+                cellMetadata.push({
+                    value: value,
+                    type: cell.type,
+                    isNumeric:
+                        cell.type === "number" ||
+                        (typeof cell.value === "string" &&
+                            (/^-?[\d,]+\.?\d*$/.test(cell.value) ||
+                                /^[$€£¥]\d+\.?\d*$/.test(cell.value) ||
+                                /^\d+\.?\d*%$/.test(cell.value))),
+                    row: pos.row,
+                    col: pos.col,
+                    style: { ...cell.style },
+                });
+
                 if (pos.row !== prevRow) {
                     text += values.join("\t") + "\n";
                     values = [];
@@ -290,8 +317,15 @@ export class CtrlKeyHandler extends BaseKeyboardHandler {
                 }
                 values.push(value);
             });
+
             text += values.join("\t") + "\n";
             navigator.clipboard.writeText(text);
+
+            // Store metadata in window for internal use
+            (window as any).__excelClipboardData = {
+                cells: cellMetadata,
+                timestamp: Date.now(),
+            };
         }
         this.updateUI(selection);
     }
@@ -309,6 +343,13 @@ export class CtrlKeyHandler extends BaseKeyboardHandler {
         this.context.grid.clearAllSelections();
         selection.start(newRow, newCol);
         this.context.renderer.clearCopiedSelection();
+
+        // Get clipboard metadata if available (from our internal clipboard)
+        const clipboardData = (window as any).__excelClipboardData;
+        const hasInternalData =
+            clipboardData &&
+            clipboardData.timestamp &&
+            Date.now() - clipboardData.timestamp < 60000; // Use if less than 1 minute old
 
         navigator.clipboard
             .readText()
@@ -330,15 +371,175 @@ export class CtrlKeyHandler extends BaseKeyboardHandler {
                                 targetRow,
                                 targetCol
                             );
-                            const oldValue = cell.getDisplayValue();
 
-                            // Create edit command for each cell
-                            const editCommand = new EditCellCommand(
-                                this.context.grid,
-                                targetRow,
-                                targetCol,
-                                cellValue
-                            );
+                            // Helper function to check if a string is numeric
+                            const isNumericString = (str: string): boolean => {
+                                const trimmedStr = str.trim();
+                                // Enhanced numeric pattern detection
+                                return (
+                                    /^-?\d+(\.\d+)?$/.test(trimmedStr) || // Simple number like 123 or -123.45
+                                    /^[$€£¥]\d+(\.\d+)?$/.test(trimmedStr) || // Currency format like $123.45
+                                    /^\d+(\.\d+)?%$/.test(trimmedStr) || // Percentage format like 50.5%
+                                    /^-?[\d,]+(\.\d+)?$/.test(trimmedStr)
+                                ); // Number with commas like 1,234.56
+                            };
+
+                            // Detect if this is a numeric value and parse appropriately
+                            let parsedValue: any;
+                            let isNumeric = false;
+                            let cellMetadata = null;
+                            let numericType = false;
+
+                            // First check if this is a simple number that can be parsed directly
+                            const trimmedCellValue = cellValue.trim();
+                            if (/^-?\d+(\.\d+)?$/.test(trimmedCellValue)) {
+                                // Definitely a number, convert it
+                                parsedValue = parseFloat(trimmedCellValue);
+                                isNumeric = true;
+                                numericType = true;
+                                console.log(
+                                    `Direct parsing ${trimmedCellValue} as number: ${parsedValue}`
+                                );
+                            } else {
+                                // Start with the string value
+                                parsedValue = cellValue;
+
+                                // Try to find metadata for this cell if we have internal clipboard data
+                                if (hasInternalData) {
+                                    // Calculate the relative position in the clipboard data
+                                    const relativeRow = rowIndex;
+                                    const relativeCol = colIndex;
+
+                                    // Find the matching cell metadata
+                                    cellMetadata = clipboardData.cells.find(
+                                        (c: any) => {
+                                            return (
+                                                c.row -
+                                                    clipboardData.cells[0]
+                                                        .row ===
+                                                    relativeRow &&
+                                                c.col -
+                                                    clipboardData.cells[0]
+                                                        .col ===
+                                                    relativeCol
+                                            );
+                                        }
+                                    );
+
+                                    if (cellMetadata) {
+                                        isNumeric =
+                                            cellMetadata.isNumeric ||
+                                            cellMetadata.type === "number";
+                                        if (cellMetadata.type === "number") {
+                                            numericType = true;
+                                        }
+                                    }
+                                }
+
+                                // If still not identified as numeric, check with regex
+                                if (!isNumeric) {
+                                    isNumeric = isNumericString(cellValue);
+                                }
+
+                                // If it's identified as numeric but not converted yet, try to convert it
+                                if (
+                                    isNumeric &&
+                                    !numericType &&
+                                    /^-?\d+(\.\d+)?$/.test(trimmedCellValue)
+                                ) {
+                                    parsedValue = parseFloat(trimmedCellValue);
+                                    numericType = true;
+                                    console.log(
+                                        `Converting identified numeric ${trimmedCellValue} to number: ${parsedValue}`
+                                    );
+                                }
+                            }
+
+                            // Create style object with proper alignment for numbers
+                            let cellStyle: any = { ...cell.style };
+
+                            if (isNumeric) {
+                                // For numeric values, ensure we have right alignment
+                                cellStyle.textAlign = "right"; // Always right-align numeric values
+                                console.log(
+                                    `Cell value "${cellValue}" identified as numeric. Setting alignment: right`
+                                );
+                            } else {
+                                // For non-numeric values, use default or metadata styling
+                                if (
+                                    cellMetadata &&
+                                    cellMetadata.style &&
+                                    cellMetadata.style.textAlign
+                                ) {
+                                    cellStyle.textAlign =
+                                        cellMetadata.style.textAlign;
+                                } else {
+                                    cellStyle.textAlign = "left"; // Default for non-numeric values
+                                }
+
+                                console.log(
+                                    `Cell value "${cellValue}" identified as non-numeric. Setting alignment: ${cellStyle.textAlign}`
+                                );
+                            }
+
+                            // Create the edit command
+                            let editCommand;
+
+                            if (isNumeric && numericType) {
+                                // For numeric values that can be converted to numbers
+                                // Create a Cell that will correctly set the type
+                                const numericValue =
+                                    typeof parsedValue === "number"
+                                        ? parsedValue
+                                        : parseFloat(
+                                              String(parsedValue).replace(
+                                                  /[^\d.-]/g,
+                                                  ""
+                                              )
+                                          );
+
+                                editCommand = new EditCellCommand(
+                                    this.context.grid,
+                                    targetRow,
+                                    targetCol,
+                                    numericValue,
+                                    cellStyle,
+                                    cell.formula
+                                );
+
+                                console.log(
+                                    `Creating EditCellCommand for numeric cell: row=${targetRow}, col=${targetCol}, value=${numericValue}, type=${typeof numericValue}`
+                                );
+
+                                // Force cell to be right-aligned and numeric
+                                const targetCell = this.context.grid.getCell(
+                                    targetRow,
+                                    targetCol
+                                );
+                                targetCell.type = "number";
+                            } else {
+                                // For other values or numeric strings that can't be converted
+                                editCommand = new EditCellCommand(
+                                    this.context.grid,
+                                    targetRow,
+                                    targetCol,
+                                    parsedValue,
+                                    cellStyle,
+                                    cell.formula
+                                );
+
+                                // If it's numeric but can't be converted, still ensure right alignment
+                                if (isNumeric) {
+                                    const targetCell =
+                                        this.context.grid.getCell(
+                                            targetRow,
+                                            targetCol
+                                        );
+                                    targetCell.style.textAlign = "right";
+                                }
+                            }
+
+                            // Add the command only once
                             compositeCommand.addCommand(editCommand);
                         }
                     });
@@ -348,6 +549,39 @@ export class CtrlKeyHandler extends BaseKeyboardHandler {
                     this.context.commandManager.executeCommand(
                         compositeCommand
                     );
+
+                    // Verify all numeric cells are properly right-aligned after paste
+                    rows.forEach((row, rowIndex) => {
+                        const cells = row.split("\t");
+                        cells.forEach((cellValue, colIndex) => {
+                            const targetRow = newRow + rowIndex;
+                            const targetCol = newCol + colIndex;
+
+                            if (
+                                targetRow < this.context.grid.getMaxRows() &&
+                                targetCol < this.context.grid.getMaxCols() &&
+                                /^-?\d+(\.\d+)?$/.test(cellValue.trim())
+                            ) {
+                                const cell = this.context.grid.getCell(
+                                    targetRow,
+                                    targetCol
+                                );
+                                if (cell.style.textAlign !== "right") {
+                                    console.warn(
+                                        `Fixing alignment for numeric cell at [${targetRow},${targetCol}]: value=${cell.value}`
+                                    );
+                                    cell.style.textAlign = "right";
+                                    if (
+                                        typeof cell.value === "string" &&
+                                        /^-?\d+(\.\d+)?$/.test(cell.value)
+                                    ) {
+                                        cell.value = parseFloat(cell.value);
+                                        cell.type = "number";
+                                    }
+                                }
+                            }
+                        });
+                    });
                 }
 
                 this.updateUI(selection);
