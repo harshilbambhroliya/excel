@@ -1,6 +1,9 @@
 // src/core/keyboard/IKeyboardHandler.ts
 
+import { CommandManager } from "../../commands/Command.js";
 import { Selection } from "../../models/Selection.js";
+import { Grid } from "../Grid.js";
+import { Renderer } from "../Renderer.js";
 
 /**
  * Interface for keyboard event handlers
@@ -22,17 +25,17 @@ export interface IKeyboardContext {
     /**
      * The grid instance
      */
-    grid: any;
+    grid: Grid;
 
     /**
      * The renderer instance
      */
-    renderer: any;
+    renderer: Renderer;
 
     /**
      * The command manager instance
      */
-    commandManager: any;
+    commandManager: CommandManager;
 
     /**
      * Get cell rectangle coordinates
