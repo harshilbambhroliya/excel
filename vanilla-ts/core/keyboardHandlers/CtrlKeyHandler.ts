@@ -44,6 +44,12 @@ export class CtrlKeyHandler extends BaseKeyboardHandler {
                 return this.handlePaste(event, selection);
             case "a":
                 return this.handleSelectAll(event, selection);
+            case "b":
+                return this.handleBold(event, selection);
+            case "i":
+                return this.handleItalic(event, selection);
+            case "u":
+                return this.handleUnderline(event, selection);
             case "ArrowUp":
             case "ArrowDown":
             case "ArrowLeft":
@@ -66,8 +72,15 @@ export class CtrlKeyHandler extends BaseKeyboardHandler {
      */
     private handleUndo(event: KeyboardEvent): boolean {
         this.preventDefault(event);
-        this.context.commandManager.undo();
-        this.context.renderer.render();
+        const undoSuccessful = this.context.commandManager.undo();
+
+        // Make sure to update the UI properly after undoing
+        if (undoSuccessful) {
+            this.context.grid.clearHeaderSelections();
+            this.context.highlightHeadersForSelection();
+            this.context.renderer.render();
+            this.context.updateSelectionStats();
+        }
         return true;
     }
 
@@ -78,8 +91,15 @@ export class CtrlKeyHandler extends BaseKeyboardHandler {
      */
     private handleRedo(event: KeyboardEvent): boolean {
         this.preventDefault(event);
-        this.context.commandManager.redo();
-        this.context.renderer.render();
+        const redoSuccessful = this.context.commandManager.redo();
+
+        // Make sure to update the UI properly after redoing
+        if (redoSuccessful) {
+            this.context.grid.clearHeaderSelections();
+            this.context.highlightHeadersForSelection();
+            this.context.renderer.render();
+            this.context.updateSelectionStats();
+        }
         return true;
     }
 
@@ -335,5 +355,130 @@ export class CtrlKeyHandler extends BaseKeyboardHandler {
             .catch((err) => {
                 console.error("Failed to read clipboard contents: ", err);
             });
+    }
+
+    private handleBold(event: KeyboardEvent, selection: Selection): boolean {
+        this.preventDefault(event);
+
+        // Get reference cell to determine whether to toggle on or off
+        const referenceCell = this.context.grid.getCell(
+            selection.startRow,
+            selection.startCol
+        );
+
+        // Toggle bold: If already bold, set to normal, otherwise set to bold
+        const newFontWeight =
+            referenceCell.style.fontWeight === "bold" ? "normal" : "bold";
+
+        // Create a composite command for multiple cells
+        const compositeCommand = new CompositeCommand();
+
+        // Get all selected cells and apply the formatting to each one
+        const selectedCells = selection.getRange();
+        selectedCells.forEach((pos) => {
+            const cell = this.context.grid.getCell(pos.row, pos.col);
+            const editCommand = new EditCellCommand(
+                this.context.grid,
+                pos.row,
+                pos.col,
+                cell.value,
+                { fontWeight: newFontWeight },
+                cell.formula
+            );
+            compositeCommand.addCommand(editCommand);
+        });
+
+        // Execute the composite command
+        this.context.commandManager.executeCommand(compositeCommand);
+
+        // Make sure to update the UI properly
+        this.updateUI(selection);
+        return true;
+    }
+
+    private handleItalic(event: KeyboardEvent, selection: Selection): boolean {
+        this.preventDefault(event);
+
+        // Get reference cell to determine whether to toggle on or off
+        const referenceCell = this.context.grid.getCell(
+            selection.startRow,
+            selection.startCol
+        );
+
+        // Toggle italic: If already italic, set to normal, otherwise set to italic
+        const newFontStyle =
+            referenceCell.style.fontStyle === "italic" ? "normal" : "italic";
+
+        // Create a composite command for multiple cells
+        const compositeCommand = new CompositeCommand();
+
+        // Get all selected cells and apply the formatting to each one
+        const selectedCells = selection.getRange();
+        selectedCells.forEach((pos) => {
+            const cell = this.context.grid.getCell(pos.row, pos.col);
+            const editCommand = new EditCellCommand(
+                this.context.grid,
+                pos.row,
+                pos.col,
+                cell.value,
+                { fontStyle: newFontStyle },
+                cell.formula
+            );
+            compositeCommand.addCommand(editCommand);
+        });
+
+        // Execute the composite command
+        this.context.commandManager.executeCommand(compositeCommand);
+
+        // Make sure to update the UI properly
+        this.updateUI(selection);
+        return true;
+    }
+
+    private handleUnderline(
+        event: KeyboardEvent,
+        selection: Selection
+    ): boolean {
+        this.preventDefault(event);
+
+        // Get reference cell to determine whether to toggle on or off
+        const referenceCell = this.context.grid.getCell(
+            selection.startRow,
+            selection.startCol
+        );
+
+        // Toggle underline: If already underlined, set to none, otherwise set to underline
+        const newTextDecoration =
+            referenceCell.style.textDecoration === "underline"
+                ? "none"
+                : "underline";
+
+        // Create a composite command for multiple cells
+        const compositeCommand = new CompositeCommand();
+
+        // Get all selected cells and apply the formatting to each one
+        const selectedCells = selection.getRange();
+        selectedCells.forEach((pos) => {
+            const cell = this.context.grid.getCell(pos.row, pos.col);
+            const editCommand = new EditCellCommand(
+                this.context.grid,
+                pos.row,
+                pos.col,
+                cell.value,
+                {
+                    textDecoration: newTextDecoration,
+                    textDecorationLine: newTextDecoration,
+                },
+                cell.formula
+            );
+            compositeCommand.addCommand(editCommand);
+        });
+
+        // Execute the composite command
+        this.context.commandManager.executeCommand(compositeCommand);
+
+        // Make sure to update the UI properly
+        this.updateUI(selection);
+        return true;
     }
 }

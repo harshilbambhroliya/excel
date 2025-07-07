@@ -1114,16 +1114,6 @@ export class Renderer {
                     let textX: number;
                     const textY = yPos + scaledHeight / 2; // Vertically center in scaled cell
 
-                    // Log occasionally for debugging
-                    if (
-                        Math.random() < 0.005 &&
-                        typeof cell.value === "number"
-                    ) {
-                        console.log(
-                            `Rendering numeric cell at R${row}C${col}: value=${cell.value}, type=${cell.type}, textAlign=${cell.style.textAlign}`
-                        );
-                    }
-
                     // Check for numeric content and ensure right alignment
                     if (cell.type === "number") {
                         // Always right-align numbers

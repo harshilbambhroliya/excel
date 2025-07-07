@@ -1,6 +1,6 @@
 // src/core/keyboard/IKeyboardHandler.ts
 
-import { CommandManager } from "../../commands/Command.js";
+import { CommandManager, CompositeCommand } from "../../commands/Command.js";
 import { Selection } from "../../models/Selection.js";
 import { Grid } from "../Grid.js";
 import { Renderer } from "../Renderer.js";

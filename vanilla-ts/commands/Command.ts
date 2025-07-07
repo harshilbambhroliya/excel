@@ -1,5 +1,5 @@
 // src/commands/Command.ts
-import { ICommand } from '../types/interfaces.js';
+import { ICommand } from "../types/interfaces.js";
 
 /**
  * Abstract base class for all commands in the application
@@ -10,7 +10,7 @@ export abstract class Command implements ICommand {
      * Executes the command
      */
     abstract execute(): void;
-    
+
     /**
      * Undoes the command
      */
@@ -23,10 +23,10 @@ export abstract class Command implements ICommand {
 export class CommandManager {
     /** @type {Command[]} Stack of commands that can be undone */
     private undoStack: Command[] = [];
-    
+
     /** @type {Command[]} Stack of commands that can be redone */
     private redoStack: Command[] = [];
-    
+
     /** @type {number} Maximum number of commands to keep in history */
     private maxHistory: number = 100;
 
@@ -38,11 +38,15 @@ export class CommandManager {
         command.execute();
         this.undoStack.push(command);
         this.redoStack = []; // Clear redo stack when new command is executed
-        
+
         // Limit history size
         if (this.undoStack.length > this.maxHistory) {
             this.undoStack.shift();
         }
+    }
+
+    public getUndoStack(): Command[] {
+        return this.undoStack;
     }
 
     /**
@@ -118,7 +122,7 @@ export class CompositeCommand implements ICommand {
      * Executes all commands in the composite
      */
     public execute(): void {
-        this.commands.forEach(command => command.execute());
+        this.commands.forEach((command) => command.execute());
     }
 
     /**

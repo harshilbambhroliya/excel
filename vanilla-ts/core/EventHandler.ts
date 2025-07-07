@@ -315,8 +315,6 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
      * @param col - The column index
      */
     public highlightHeadersForCell(row: number, col: number): void {
-        console.log(`Highlighting headers for cell at (${row}, ${col})`);
-
         // Get the row and column objects
         const rowObj = this.grid.getRow(row);
         const colObj = this.grid.getColumn(col);
