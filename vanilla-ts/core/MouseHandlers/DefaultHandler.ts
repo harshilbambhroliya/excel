@@ -303,10 +303,6 @@ export class DefaultHandler extends BaseHandler {
         const canvasX = this.lastGlobalMousePos.x - canvasRect.left;
         const canvasY = this.lastGlobalMousePos.y - canvasRect.top;
 
-        // Store previous selection end coordinates
-        const prevEndRow = selection.endRow;
-        const prevEndCol = selection.endCol;
-
         // Adjust the coordinates based on auto-scroll direction
         // This helps predict the cell the user is trying to select
         let adjustedCanvasX = canvasX;
