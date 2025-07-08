@@ -1,5 +1,9 @@
-export { BaseHandler, IEventHandler, IHandlerContext } from "./BaseHandler.js";
-export { DefaultHandler } from "./DefaultHandler.js";
-export { ResizeHandler } from "./ResizeHandler.js";
-export { HeaderDragHandler } from "./HeaderDragHandler.js";
-export { HandlerManager } from "./HandlerManager.js";
+export {
+    BaseHandler,
+    IEventHandler,
+    IHandlerContext,
+} from "./Base/BaseHandler.js";
+export { DefaultHandler } from "./Selection/DefaultHandler.js";
+export { ResizeHandler } from "./Resize/ResizeHandler.js";
+export { HeaderDragHandler } from "./Header/HeaderDragHandler.js";
+export { HandlerManager } from "./Management/HandlerManager.js";

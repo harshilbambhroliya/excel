@@ -1,7 +1,7 @@
-import { Grid } from "../Grid.js";
-import { Renderer } from "../Renderer.js";
-import { CommandManager } from "../../commands/Command.js";
-import { ScrollbarManager } from "../ScrollbarManager.js";
+import { Grid } from "../../Grid.js";
+import { Renderer } from "../../Renderer.js";
+import { CommandManager } from "../../../commands/Command.js";
+import { ScrollbarManager } from "../../ScrollbarManager.js";
 
 /**
  * Base interface for all event handlers

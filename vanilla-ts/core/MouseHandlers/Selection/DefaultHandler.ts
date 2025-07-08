@@ -1,4 +1,4 @@
-import { BaseHandler, IHandlerContext } from "./BaseHandler.js";
+import { BaseHandler, IHandlerContext } from "../Base/BaseHandler.js";
 import { CellSelectionHandler } from "./CellSelectionHandler.js";
 import { HeaderCornerSelectionHandler } from "./HeaderCornerSelectionHandler.js";
 

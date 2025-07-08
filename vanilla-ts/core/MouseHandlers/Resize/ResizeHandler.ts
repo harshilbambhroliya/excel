@@ -1,4 +1,4 @@
-import { BaseHandler } from "./BaseHandler.js";
+import { BaseHandler } from "../Base/BaseHandler.js";
 import { ColumnResizeHandler } from "./ColumnResizeHandler.js";
 import { RowResizeHandler } from "./RowResizeHandler.js";
 

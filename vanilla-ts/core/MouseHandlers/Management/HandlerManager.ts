@@ -1,9 +1,9 @@
-import { IEventHandler, IHandlerContext } from "./BaseHandler.js";
-import { DefaultHandler } from "./DefaultHandler.js";
-import { ResizeHandler } from "./ResizeHandler.js";
-import { HeaderDragHandler } from "./HeaderDragHandler.js";
-import { RowHeaderDragHandler } from "./RowHeaderDragHandler.js";
-import { ColumnHeaderDragHandler } from "./ColumnHeaderDragHandler.js";
+import { IEventHandler, IHandlerContext } from "../Base/BaseHandler.js";
+import { DefaultHandler } from "../Selection/DefaultHandler.js";
+import { ResizeHandler } from "../Resize/ResizeHandler.js";
+import { HeaderDragHandler } from "../Header/HeaderDragHandler.js";
+import { RowHeaderDragHandler } from "../Header/RowHeaderDragHandler.js";
+import { ColumnHeaderDragHandler } from "../Header/ColumnHeaderDragHandler.js";
 
 /**
  * Manages the current event handler and delegates events appropriately

@@ -1,5 +1,5 @@
-import { BaseResizeHandler } from "./BaseResizeHandler.js";
-import { ResizeColumnCommand } from "../../commands/ResizeColumnCommand.js";
+import { BaseResizeHandler } from "../Base/BaseResizeHandler.js";
+import { ResizeColumnCommand } from "../../../commands/ResizeColumnCommand.js";
 
 /**
  * Handler for resizing columns

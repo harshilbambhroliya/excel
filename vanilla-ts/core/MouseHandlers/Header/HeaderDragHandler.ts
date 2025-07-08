@@ -1,4 +1,4 @@
-import { BaseHandler } from "./BaseHandler.js";
+import { BaseHandler } from "../Base/BaseHandler.js";
 import { RowHeaderDragHandler } from "./RowHeaderDragHandler.js";
 import { ColumnHeaderDragHandler } from "./ColumnHeaderDragHandler.js";
 

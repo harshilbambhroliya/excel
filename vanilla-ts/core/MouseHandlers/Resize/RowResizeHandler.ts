@@ -1,5 +1,5 @@
-import { BaseResizeHandler } from "./BaseResizeHandler.js";
-import { ResizeRowCommand } from "../../commands/ResizeRowCommand.js";
+import { BaseResizeHandler } from "../Base/BaseResizeHandler.js";
+import { ResizeRowCommand } from "../../../commands/ResizeRowCommand.js";
 
 /**
  * Handler for resizing rows

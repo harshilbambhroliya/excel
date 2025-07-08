@@ -1,4 +1,4 @@
-import { BaseHandler } from "./BaseHandler.js";
+import { BaseHandler } from "../Base/BaseHandler.js";
 
 /**
  * Handler for selecting all cells via the header corner

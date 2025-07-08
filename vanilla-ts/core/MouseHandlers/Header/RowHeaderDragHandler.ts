@@ -1,4 +1,4 @@
-import { BaseHeaderDragHandler } from "./BaseHeaderDragHandler.js";
+import { BaseHeaderDragHandler } from "../Base/BaseHeaderDragHandler.js";
 
 /**
  * Handler for dragging row headers to select row ranges
