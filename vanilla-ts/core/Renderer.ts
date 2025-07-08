@@ -1369,8 +1369,8 @@ export class Renderer {
         // Ensure the line is drawn on pixel boundaries for sharpness
         const pixelAlignedX = Math.round(startX) + 0.5;
         const pixelAlignedY = Math.round(startY) + 0.5;
-        const pixelAlignedWidth = Math.round(width);
-        const pixelAlignedHeight = Math.round(height);
+        const pixelAlignedWidth = Math.round(width) + 0.5;
+        const pixelAlignedHeight = Math.round(height) + 0.5;
 
         // Draw selection highlight with a more noticeable color
         this.ctx.fillStyle = this.isFormulaRangeSelection

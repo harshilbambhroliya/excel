@@ -19,7 +19,7 @@ export class DataManager {
     /**
      * The maximum number of columns
      */
-    private maxCols: number = 1000;
+    private maxCols: number = 16384;
 
     /**
      * The initial number of rows to display
