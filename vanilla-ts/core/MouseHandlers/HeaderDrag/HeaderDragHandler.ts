@@ -78,7 +78,7 @@ export class HeaderDragHandler extends BaseHandler {
      * @param renderer - Renderer instance
      * @returns Header drag info or null
      */
-    static getHeaderDragInfo(
+    getHeaderDragInfo(
         event: MouseEvent,
         grid: any,
         renderer: any

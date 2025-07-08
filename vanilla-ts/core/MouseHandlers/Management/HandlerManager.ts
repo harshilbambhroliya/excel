@@ -2,8 +2,6 @@ import { IEventHandler, IHandlerContext } from "../Base/BaseHandler.js";
 import { DefaultHandler } from "../Selection/DefaultHandler.js";
 import { ResizeHandler } from "../Resize/ResizeHandler.js";
 import { HeaderDragHandler } from "../HeaderDrag/HeaderDragHandler.js";
-import { RowHeaderDragHandler } from "../HeaderDrag/RowHeaderDragHandler.js";
-import { ColumnHeaderDragHandler } from "../HeaderDrag/ColumnHeaderDragHandler.js";
 
 /**
  * Manages the current event handler and delegates events appropriately
@@ -11,11 +9,19 @@ import { ColumnHeaderDragHandler } from "../HeaderDrag/ColumnHeaderDragHandler.j
 export class HandlerManager {
     private currentHandler: IEventHandler;
     private context: IHandlerContext;
-
+    private resizeHandler: ResizeHandler | null = null;
+    private headerDragHandler: HeaderDragHandler | null = null;
     constructor(context: IHandlerContext) {
         this.context = context;
         this.currentHandler = new DefaultHandler(context);
         this.currentHandler.onActivate();
+
+        // Initialize resize and header drag handlers if needed
+        this.resizeHandler = new ResizeHandler(context, {
+            type: "column",
+            index: -1,
+        });
+        this.headerDragHandler = new HeaderDragHandler(context, "column", -1);
     }
 
     /**
@@ -87,7 +93,7 @@ export class HandlerManager {
      */
     private determineHandler(event: MouseEvent): IEventHandler {
         // Check for resize handles first (highest priority)
-        const resizeTarget = ResizeHandler.getResizeTarget(
+        const resizeTarget = this.resizeHandler!.getResizeTarget(
             event.offsetX,
             event.offsetY,
             this.context.grid,
@@ -98,7 +104,7 @@ export class HandlerManager {
         }
 
         // Check for header drag areas
-        const headerDragInfo = HeaderDragHandler.getHeaderDragInfo(
+        const headerDragInfo = this.headerDragHandler!.getHeaderDragInfo(
             event,
             this.context.grid,
             this.context.renderer

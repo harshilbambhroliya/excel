@@ -130,7 +130,7 @@ export class ResizeHandler extends BaseHandler {
      * @param y - The y position
      * @returns The resize target
      */
-    static getResizeTarget(
+    getResizeTarget(
         x: number,
         y: number,
         grid: any,
