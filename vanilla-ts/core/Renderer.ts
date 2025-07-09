@@ -466,11 +466,6 @@ export class Renderer {
             );
 
             if (this.grid.expandColumns(colsToAdd)) {
-                console.log(
-                    `Added ${colsToAdd} more columns. Now at ${this.grid.getCurrentCols()} columns. (Zoom: ${zoomFactor.toFixed(
-                        2
-                    )}, Threshold: ${colThreshold})`
-                );
                 needsUpdate = true;
             }
         }
