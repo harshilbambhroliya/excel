@@ -41,8 +41,8 @@ export class HeaderDragHandler extends BaseHandler {
      * @param event - Mouse event
      * @returns true if handled, false otherwise
      */
-    handleMouseDown(event: MouseEvent): boolean {
-        return this.delegateHandler.handleMouseDown(event);
+    handlePointerDown(event: PointerEvent): boolean {
+        return this.delegateHandler.handlePointerDown(event);
     }
 
     /**
@@ -50,8 +50,8 @@ export class HeaderDragHandler extends BaseHandler {
      * @param event - Mouse event
      * @returns true if handled, false otherwise
      */
-    handleMouseMove(event: MouseEvent): boolean {
-        return this.delegateHandler.handleMouseMove(event);
+    handlePointerMove(event: PointerEvent): boolean {
+        return this.delegateHandler.handlePointerMove(event);
     }
 
     /**
@@ -59,8 +59,8 @@ export class HeaderDragHandler extends BaseHandler {
      * @param event - Mouse event
      * @returns true if handled, false otherwise
      */
-    handleMouseUp(event: MouseEvent): boolean {
-        return this.delegateHandler.handleMouseUp(event);
+    handlePointerUp(event: PointerEvent): boolean {
+        return this.delegateHandler.handlePointerUp(event);
     }
 
     /**

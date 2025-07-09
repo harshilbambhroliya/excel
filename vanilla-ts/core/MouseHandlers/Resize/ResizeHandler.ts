@@ -47,9 +47,9 @@ export class ResizeHandler extends BaseHandler {
      * @param event - The mouse event
      * @returns True if handled, false otherwise
      */
-    handleMouseDown(event: MouseEvent): boolean {
+    handlePointerDown(event: PointerEvent): boolean {
         if (this.delegateHandler) {
-            return this.delegateHandler.handleMouseDown(event);
+            return this.delegateHandler.handlePointerDown(event);
         }
         return false;
     }
@@ -59,9 +59,9 @@ export class ResizeHandler extends BaseHandler {
      * @param event - The mouse event
      * @returns True if handled, false otherwise
      */
-    handleMouseMove(event: MouseEvent): boolean {
+    handlePointerMove(event: PointerEvent): boolean {
         if (this.delegateHandler) {
-            return this.delegateHandler.handleMouseMove(event);
+            return this.delegateHandler.handlePointerMove(event);
         }
         return false;
     }
@@ -72,9 +72,9 @@ export class ResizeHandler extends BaseHandler {
      * @param event - The mouse event
      * @returns True if handled, false otherwise
      */
-    handleMouseUp(event: MouseEvent): boolean {
+    handlePointerUp(event: PointerEvent): boolean {
         if (this.delegateHandler) {
-            const result = this.delegateHandler.handleMouseUp(event);
+            const result = this.delegateHandler.handlePointerUp(event);
 
             // Clean up after the operation is complete
             if (result) {

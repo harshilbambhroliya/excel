@@ -18,7 +18,7 @@ export class ColumnResizeHandler extends BaseResizeHandler {
      * @param event - The mouse event
      * @returns True if handled, false otherwise
      */
-    handleMouseMove(event: MouseEvent): boolean {
+    handlePointerMove(event: PointerEvent): boolean {
         const zoomFactor = this.renderer.getZoom();
 
         // Calculate the drag delta, accounting for zoom
@@ -76,7 +76,7 @@ export class ColumnResizeHandler extends BaseResizeHandler {
      * @param event - The mouse event
      * @returns True if handled, false otherwise
      */
-    handleMouseUp(event: MouseEvent): boolean {
+    handlePointerUp(event: PointerEvent): boolean {
         // Check if we have a selection to handle multiple columns
         const selection = this.grid.getSelection();
 

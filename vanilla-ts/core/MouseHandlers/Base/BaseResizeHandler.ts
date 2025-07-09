@@ -30,7 +30,7 @@ export abstract class BaseResizeHandler extends BaseHandler {
      * @param event - The mouse event
      * @returns True if handled, false otherwise
      */
-    handleMouseDown(event: MouseEvent): boolean {
+    handlePointerDown(event: PointerEvent): boolean {
         this.lastMousePos = { x: event.offsetX, y: event.offsetY };
         return true;
     }
@@ -40,14 +40,14 @@ export abstract class BaseResizeHandler extends BaseHandler {
      * @param event - The mouse event
      * @returns True if handled, false otherwise
      */
-    abstract handleMouseMove(event: MouseEvent): boolean;
+    abstract handlePointerMove(event: PointerEvent): boolean;
 
     /**
-     * Abstract method to handle mouse up events and finalize resizing
-     * @param event - The mouse event
+     * Abstract method to handle pointer up events and finalize resizing
+     * @param event - The pointer event
      * @returns True if handled, false otherwise
      */
-    abstract handleMouseUp(event: MouseEvent): boolean;
+    abstract handlePointerUp(event: PointerEvent): boolean;
 
     /**
      * Gets the cursor style based on the current resize target

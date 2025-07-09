@@ -11,7 +11,7 @@ export class HeaderCornerSelectionHandler extends BaseHandler {
      * @param event - The mouse event
      * @returns True if handled, false otherwise
      */
-    handleMouseDown(event: MouseEvent): boolean {
+    handlePointerDown(event: PointerEvent): boolean {
         const dimensions = this.context.grid.getDimensions();
 
         // Check if clicking on header corner (select all)
@@ -42,7 +42,7 @@ export class HeaderCornerSelectionHandler extends BaseHandler {
      * @param event - The mouse event
      * @returns True if handled, false otherwise
      */
-    handleMouseMove(event: MouseEvent): boolean {
+    handlePointerMove(event: PointerEvent): boolean {
         // No special handling needed for header corner selection when moving
         return false;
     }
@@ -52,7 +52,7 @@ export class HeaderCornerSelectionHandler extends BaseHandler {
      * @param event - The mouse event
      * @returns True if handled, false otherwise
      */
-    handleMouseUp(event: MouseEvent): boolean {
+    handlePointerUp(event: PointerEvent): boolean {
         if (this.isMouseDown) {
             this.isMouseDown = false;
             return true;

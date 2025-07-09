@@ -18,7 +18,7 @@ export class RowHeaderDragHandler extends BaseHeaderDragHandler {
      * @param event - Mouse event
      * @returns true if handled, false otherwise
      */
-    handleMouseDown(event: MouseEvent): boolean {
+    handlePointerDown(event: PointerEvent): boolean {
         // Set up document-level mouse tracking for when mouse leaves canvas
         this.setupDocumentMouseTracking(event);
 
@@ -35,7 +35,7 @@ export class RowHeaderDragHandler extends BaseHeaderDragHandler {
      * @param event - Mouse event
      * @returns true if handled, false otherwise
      */
-    handleMouseMove(event: MouseEvent): boolean {
+    handlePointerMove(event: PointerEvent): boolean {
         const dimensions = this.grid.getDimensions();
 
         // Row header dragging
@@ -193,7 +193,7 @@ export class RowHeaderDragHandler extends BaseHeaderDragHandler {
             clientY: event.clientY,
             preventDefault: () => {},
             stopPropagation: () => {},
-        } as MouseEvent;
+        } as PointerEvent;
 
         // Check if mouse is outside canvas bounds
         const isOutsideCanvas =
@@ -215,7 +215,7 @@ export class RowHeaderDragHandler extends BaseHeaderDragHandler {
             }
 
             // Always handle the mouse move regardless of position
-            this.handleMouseMove(syntheticEvent);
+            this.handlePointerMove(syntheticEvent);
         }
     }
 

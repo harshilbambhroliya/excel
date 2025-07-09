@@ -12,21 +12,21 @@ export interface IEventHandler {
      * @param event - The pointer event
      * @returns true if the event was handled and should not propagate
      */
-    handleMouseDown(event: PointerEvent): boolean;
+    handlePointerDown(event: PointerEvent): boolean;
 
     /**
      * Handles pointer move events
      * @param event - The pointer event
      * @returns true if the event was handled and should not propagate
      */
-    handleMouseMove(event: PointerEvent): boolean;
+    handlePointerMove(event: PointerEvent): boolean;
 
     /**
      * Handles pointer up events
      * @param event - The pointer event
      * @returns true if the event was handled and should not propagate
      */
-    handleMouseUp(event: PointerEvent): boolean;
+    handlePointerUp(event: PointerEvent): boolean;
 
     /**
      * Called when the handler becomes active
@@ -91,9 +91,9 @@ export abstract class BaseHandler implements IEventHandler {
         this.context = context;
     }
 
-    abstract handleMouseDown(event: PointerEvent): boolean;
-    abstract handleMouseMove(event: PointerEvent): boolean;
-    abstract handleMouseUp(event: PointerEvent): boolean;
+    abstract handlePointerDown(event: PointerEvent): boolean;
+    abstract handlePointerMove(event: PointerEvent): boolean;
+    abstract handlePointerUp(event: PointerEvent): boolean;
     abstract getCursor(x: number, y: number): string;
 
     onActivate(): void {

@@ -28,7 +28,7 @@ export class HandlerManager {
      * Handles pointer down events by determining the appropriate handler
      * @param event - The pointer event
      */
-    public handleMouseDown(event: PointerEvent): void {
+    public handlePointerDown(event: PointerEvent): void {
         // First check if we should switch handlers based on the mouse position
         const newHandler = this.determineHandler(event);
 
@@ -37,29 +37,29 @@ export class HandlerManager {
         }
 
         // Let the current handler handle the event
-        this.currentHandler.handleMouseDown(event);
+        this.currentHandler.handlePointerDown(event);
     }
 
     /**
      * Handles pointer move events
      * @param event - The pointer event
      */
-    public handleMouseMove(event: PointerEvent): void {
+    public handlePointerMove(event: PointerEvent): void {
         // Update cursor if not currently handling an operation
         if (!this.isHandling()) {
             this.updateCursor(event);
         }
-        this.currentHandler.handleMouseMove(event);
+        this.currentHandler.handlePointerMove(event);
     }
 
     /**
      * Handles pointer up events
      * @param event - The pointer event
      */
-    public handleMouseUp(event: PointerEvent): void {
-        this.currentHandler.handleMouseUp(event);
+    public handlePointerUp(event: PointerEvent): void {
+        this.currentHandler.handlePointerUp(event);
 
-        // After mouse up, potentially switch back to default handler
+        // After pointer up, potentially switch back to default handler
         if (!(this.currentHandler instanceof DefaultHandler)) {
             this.switchHandler(new DefaultHandler(this.context));
         }

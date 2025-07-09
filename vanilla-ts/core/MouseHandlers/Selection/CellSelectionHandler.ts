@@ -54,7 +54,7 @@ export class CellSelectionHandler extends BaseHandler {
      * @param event - The mouse event
      * @returns True if handled, false otherwise
      */
-    handleMouseDown(event: PointerEvent): boolean {
+    handlePointerDown(event: PointerEvent): boolean {
         this.canvas.focus();
         this.isMouseDown = true;
         this.lastMousePos = { x: event.offsetX, y: event.offsetY };
@@ -108,7 +108,7 @@ export class CellSelectionHandler extends BaseHandler {
      * @param event - The mouse event
      * @returns True if handled, false otherwise
      */
-    handleMouseMove(event: PointerEvent): boolean {
+    handlePointerMove(event: PointerEvent): boolean {
         if (!this.isMouseDown) return false;
 
         // Handle cell selection dragging
@@ -157,7 +157,7 @@ export class CellSelectionHandler extends BaseHandler {
      * @param event - The mouse event
      * @returns True if handled, false otherwise
      */
-    handleMouseUp(event: PointerEvent): boolean {
+    handlePointerUp(event: PointerEvent): boolean {
         this.isMouseDown = false;
         this.isDragging = false;
 
@@ -510,7 +510,7 @@ export class CellSelectionHandler extends BaseHandler {
                 stopPropagation: () => {},
             } as MouseEvent;
 
-            this.handleMouseMove(syntheticEvent as unknown as PointerEvent);
+            this.handlePointerMove(syntheticEvent as PointerEvent);
         }
     }
 
@@ -522,7 +522,7 @@ export class CellSelectionHandler extends BaseHandler {
      */
     private handleGlobalMouseUp(event: PointerEvent): void {
         this.removeDocumentMouseTracking();
-        this.handleMouseUp(event);
+        this.handlePointerUp(event);
     }
 
     /**

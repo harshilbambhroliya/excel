@@ -27,18 +27,18 @@ export class DefaultHandler extends BaseHandler {
      * @param event - The mouse event
      * @returns True if handled, false otherwise
      */
-    handleMouseDown(event: MouseEvent): boolean {
+    handlePointerDown(event: PointerEvent): boolean {
         this.canvas.focus();
         this.isMouseDown = true;
         this.lastMousePos = { x: event.offsetX, y: event.offsetY };
 
         // Try header corner handler first
-        if (this.headerCornerSelectionHandler.handleMouseDown(event)) {
+        if (this.headerCornerSelectionHandler.handlePointerDown(event)) {
             return true;
         }
 
         // Then try cell selection handler
-        if (this.cellSelectionHandler.handleMouseDown(event)) {
+        if (this.cellSelectionHandler.handlePointerDown(event)) {
             return true;
         }
 
@@ -50,11 +50,11 @@ export class DefaultHandler extends BaseHandler {
      * @param event - The mouse event
      * @returns True if handled, false otherwise
      */
-    handleMouseMove(event: MouseEvent): boolean {
+    handlePointerMove(event: PointerEvent): boolean {
         if (!this.isMouseDown) return false;
 
         // Delegate to cell selection handler for all mouse movement
-        if (this.cellSelectionHandler.handleMouseMove(event)) {
+        if (this.cellSelectionHandler.handlePointerMove(event)) {
             return true;
         }
 
@@ -66,17 +66,17 @@ export class DefaultHandler extends BaseHandler {
      * @param event - The mouse event
      * @returns True if handled, false otherwise
      */
-    handleMouseUp(event: MouseEvent): boolean {
+    handlePointerUp(event: PointerEvent): boolean {
         this.isMouseDown = false;
 
         // Notify both handlers about mouse up to clean up their state
         let handlersCleaned = false;
 
-        if (this.headerCornerSelectionHandler.handleMouseUp(event)) {
+        if (this.headerCornerSelectionHandler.handlePointerUp(event)) {
             handlersCleaned = true;
         }
 
-        if (this.cellSelectionHandler.handleMouseUp(event)) {
+        if (this.cellSelectionHandler.handlePointerUp(event)) {
             handlersCleaned = true;
         }
 

@@ -71,21 +71,21 @@ export abstract class BaseHeaderDragHandler extends BaseHandler {
      * @param event - Pointer event
      * @returns true if handled, false otherwise
      */
-    abstract handleMouseDown(event: PointerEvent): boolean;
+    abstract handlePointerDown(event: PointerEvent): boolean;
 
     /**
      * Handles pointer move event to update header selection
      * @param event - Pointer event
      * @returns true if handled, false otherwise
      */
-    abstract handleMouseMove(event: PointerEvent): boolean;
+    abstract handlePointerMove(event: PointerEvent): boolean;
 
     /**
      * Handles pointer up event to finalize header selection
      * @param event - Pointer event
      * @returns true if handled, false otherwise
      */
-    handleMouseUp(event: PointerEvent): boolean {
+    handlePointerUp(event: PointerEvent): boolean {
         // Stop auto-scrolling and clean up document listeners
         this.stopAutoScroll();
         this.removeDocumentMouseTracking();
@@ -190,8 +190,8 @@ export abstract class BaseHeaderDragHandler extends BaseHandler {
             stopPropagation: () => {},
         } as MouseEvent;
 
-        // Reuse the same handleMouseMove logic for consistency
-        this.handleMouseMove(syntheticEvent as unknown as PointerEvent);
+        // Reuse the same handlePointerMove logic for consistency
+        this.handlePointerMove(syntheticEvent as unknown as PointerEvent);
     }
 
     /**
@@ -254,8 +254,8 @@ export abstract class BaseHeaderDragHandler extends BaseHandler {
         // Clean up document listeners
         this.removeDocumentMouseTracking();
 
-        // Handle the mouse up normally
-        this.handleMouseUp(event);
+        // Handle the pointer up normally
+        this.handlePointerUp(event);
     }
 
     /**
