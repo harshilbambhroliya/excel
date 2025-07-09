@@ -97,6 +97,9 @@ export class Renderer {
      */
     private isFormulaRangeSelection: boolean = false;
 
+    public hoverRowHeader: number | null = null;
+    public hoverColumnHeader: number | null = null;
+
     /**
      * Constructor for the Renderer class
      * @param {HTMLCanvasElement} canvas The canvas element to render the grid on
@@ -622,6 +625,12 @@ export class Renderer {
             // Skip rendering if row object is undefined
             if (!rowObj) continue;
 
+            if (this.hoverRowHeader === row) {
+                this.ctx.fillStyle = "#e0e3e7"; // Highlight hovered row header
+                this.ctx.fillRect(0, yPos, dimensions.headerWidth, rowHeight);
+                this.ctx.fillStyle = "#FFFFFF"; // White text for better contrast
+            }
+
             if (rowObj.isSelected) {
                 // Different styles for direct vs. indirect selection
                 if (rowObj.isDirectlySelected) {
@@ -745,6 +754,13 @@ export class Renderer {
             // Skip rendering if column object is undefined
             if (!colObj) continue;
 
+            // Highlight hovered column header
+            if (this.hoverColumnHeader === col) {
+                this.ctx.fillStyle = "#e0e3e7"; // Highlight hovered column header
+                this.ctx.fillRect(xPos, 0, colWidth, dimensions.headerHeight);
+                this.ctx.fillStyle = "#FFFFFF"; // White text for better contrast
+            }
+
             if (colObj.isSelected) {
                 // Different styles for direct vs. indirect selection
                 if (colObj.isDirectlySelected) {
@@ -849,6 +865,10 @@ export class Renderer {
         return xPos - this.scrollX * this.zoomFactor;
     }
 
+    public getColumnHeaderPosition(col: number): number {
+        return this.getColumnPositionForHeader(col);
+    }
+
     /**
      * Gets the row position for header rendering, accounting for zoom factor
      * @param {number} row The row index
@@ -865,6 +885,10 @@ export class Renderer {
 
         // Adjust for scroll position
         return yPos - this.scrollY * this.zoomFactor;
+    }
+
+    public getRowHeaderPosition(row: number): number {
+        return this.getRowPositionForHeader(row);
     }
 
     /**

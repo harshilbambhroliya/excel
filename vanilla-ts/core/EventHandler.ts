@@ -449,6 +449,7 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
             );
         }
     }
+
     /**
      * Gets the rectangle for a cell at the specified row and column
      * @param row - The row index of the cell

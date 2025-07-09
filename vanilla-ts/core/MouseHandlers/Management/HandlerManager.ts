@@ -49,7 +49,6 @@ export class HandlerManager {
         if (!this.isHandling()) {
             this.updateCursor(event);
         }
-
         this.currentHandler.handleMouseMove(event);
     }
 
@@ -82,8 +81,63 @@ export class HandlerManager {
      * @param event - The mouse event
      */
     private updateCursor(event: MouseEvent): void {
+        this.updateHeaderHoverState(event);
         const cursor = this.getCursor(event);
         this.context.canvas.style.cursor = cursor;
+    }
+
+    /**
+     * Updates the header hover state in the renderer based on mouse position
+     * @param event - The mouse event
+     */
+    private updateHeaderHoverState(event: MouseEvent): void {
+        const { grid, renderer } = this.context;
+        const dimensions = grid.getDimensions();
+        const { offsetX, offsetY } = event;
+
+        // Store previous hover states to detect changes
+        const prevRowHeader = renderer.hoverRowHeader;
+        const prevColHeader = renderer.hoverColumnHeader;
+
+        // Reset hover states
+        renderer.hoverRowHeader = null;
+        renderer.hoverColumnHeader = null;
+
+        const zoomFactor = renderer.getZoom();
+
+        // Check if mouse is over column headers
+        if (offsetY < dimensions.headerHeight) {
+            // Find which column the mouse is over
+            for (let col = 0; col < grid.getCurrentCols(); col++) {
+                const colPos = renderer.getColumnHeaderPosition(col);
+                const colWidth = grid.getColumnWidth(col) * zoomFactor;
+                if (offsetX >= colPos && offsetX < colPos + colWidth) {
+                    renderer.hoverColumnHeader = col;
+                    break;
+                }
+            }
+        }
+
+        // Check if mouse is over row headers
+        if (offsetX < dimensions.headerWidth) {
+            // Find which row the mouse is over
+            for (let row = 0; row < grid.getCurrentRows(); row++) {
+                const rowPos = renderer.getRowHeaderPosition(row);
+                const rowHeight = grid.getRowHeight(row) * zoomFactor;
+                if (offsetY >= rowPos && offsetY < rowPos + rowHeight) {
+                    renderer.hoverRowHeader = row;
+                    break;
+                }
+            }
+        }
+
+        // Trigger a redraw if hover state changed (either started hovering or stopped hovering)
+        if (
+            prevRowHeader !== renderer.hoverRowHeader ||
+            prevColHeader !== renderer.hoverColumnHeader
+        ) {
+            renderer.render();
+        }
     }
 
     /**
