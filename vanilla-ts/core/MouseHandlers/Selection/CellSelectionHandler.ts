@@ -14,10 +14,11 @@ export class CellSelectionHandler extends BaseHandler {
     private autoScrollSpeed: number = 15;
     private autoScrollZone: number = 30;
 
-    // Document-level event handlers for outside canvas mouse tracking
-    private documentMouseMoveHandler: ((event: MouseEvent) => void) | null =
+    // Document-level event handlers for outside canvas pointer tracking
+    private documentMouseMoveHandler: ((event: PointerEvent) => void) | null =
         null;
-    private documentMouseUpHandler: ((event: MouseEvent) => void) | null = null;
+    private documentMouseUpHandler: ((event: PointerEvent) => void) | null =
+        null;
     private lastGlobalMousePos: { x: number; y: number } = { x: 0, y: 0 };
 
     /**
@@ -53,7 +54,7 @@ export class CellSelectionHandler extends BaseHandler {
      * @param event - The mouse event
      * @returns True if handled, false otherwise
      */
-    handleMouseDown(event: MouseEvent): boolean {
+    handleMouseDown(event: PointerEvent): boolean {
         this.canvas.focus();
         this.isMouseDown = true;
         this.lastMousePos = { x: event.offsetX, y: event.offsetY };
@@ -107,7 +108,7 @@ export class CellSelectionHandler extends BaseHandler {
      * @param event - The mouse event
      * @returns True if handled, false otherwise
      */
-    handleMouseMove(event: MouseEvent): boolean {
+    handleMouseMove(event: PointerEvent): boolean {
         if (!this.isMouseDown) return false;
 
         // Handle cell selection dragging
@@ -156,7 +157,7 @@ export class CellSelectionHandler extends BaseHandler {
      * @param event - The mouse event
      * @returns True if handled, false otherwise
      */
-    handleMouseUp(event: MouseEvent): boolean {
+    handleMouseUp(event: PointerEvent): boolean {
         this.isMouseDown = false;
         this.isDragging = false;
 
@@ -436,7 +437,7 @@ export class CellSelectionHandler extends BaseHandler {
 
     /**
      * Sets up document-level mouse tracking for when the mouse leaves the canvas
-     *  - Listens for mousemove and mouseup events on the document
+     *  - Listens for pointermove and pointerup events on the document
      *  - Handles global mouse move and mouse up events
      *  @param initialEvent - The initial mouse event that triggered the canvas mouse down
      * */
@@ -448,18 +449,18 @@ export class CellSelectionHandler extends BaseHandler {
         };
 
         // Create document mouse move handler
-        this.documentMouseMoveHandler = (event: MouseEvent) => {
+        this.documentMouseMoveHandler = (event: PointerEvent) => {
             this.handleGlobalMouseMove(event);
         };
 
         // Create document mouse up handler
-        this.documentMouseUpHandler = (event: MouseEvent) => {
+        this.documentMouseUpHandler = (event: PointerEvent) => {
             this.handleGlobalMouseUp(event);
         };
 
         // Add document-level listeners
-        document.addEventListener("mousemove", this.documentMouseMoveHandler);
-        document.addEventListener("mouseup", this.documentMouseUpHandler);
+        document.addEventListener("pointermove", this.documentMouseMoveHandler);
+        document.addEventListener("pointerup", this.documentMouseUpHandler);
     }
 
     /**
@@ -469,7 +470,7 @@ export class CellSelectionHandler extends BaseHandler {
      *  - Handles auto-scrolling and selection extension
      * @param event - The mouse event
      */
-    private handleGlobalMouseMove(event: MouseEvent): void {
+    private handleGlobalMouseMove(event: PointerEvent): void {
         if (!this.isMouseDown) return;
 
         this.lastGlobalMousePos = { x: event.clientX, y: event.clientY };
@@ -509,7 +510,7 @@ export class CellSelectionHandler extends BaseHandler {
                 stopPropagation: () => {},
             } as MouseEvent;
 
-            this.handleMouseMove(syntheticEvent);
+            this.handleMouseMove(syntheticEvent as unknown as PointerEvent);
         }
     }
 
@@ -519,7 +520,7 @@ export class CellSelectionHandler extends BaseHandler {
      *  - Calls the normal mouse up handler
      * @param event - The mouse event
      */
-    private handleGlobalMouseUp(event: MouseEvent): void {
+    private handleGlobalMouseUp(event: PointerEvent): void {
         this.removeDocumentMouseTracking();
         this.handleMouseUp(event);
     }
@@ -530,7 +531,7 @@ export class CellSelectionHandler extends BaseHandler {
     private removeDocumentMouseTracking(): void {
         if (this.documentMouseMoveHandler) {
             document.removeEventListener(
-                "mousemove",
+                "pointermove",
                 this.documentMouseMoveHandler
             );
             this.documentMouseMoveHandler = null;
@@ -538,7 +539,7 @@ export class CellSelectionHandler extends BaseHandler {
 
         if (this.documentMouseUpHandler) {
             document.removeEventListener(
-                "mouseup",
+                "pointerup",
                 this.documentMouseUpHandler
             );
             this.documentMouseUpHandler = null;

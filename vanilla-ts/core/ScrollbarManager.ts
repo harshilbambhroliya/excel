@@ -103,7 +103,7 @@ export class ScrollbarManager {
     private setupEventListeners(): void {
         // Horizontal scrollbar events
         this.horizontalThumb.addEventListener(
-            "mousedown",
+            "pointerdown",
             this.handleHorizontalMouseDown.bind(this)
         );
         this.horizontalScrollbar.addEventListener(
@@ -113,7 +113,7 @@ export class ScrollbarManager {
 
         // Vertical scrollbar events
         this.verticalThumb.addEventListener(
-            "mousedown",
+            "pointerdown",
             this.handleVerticalMouseDown.bind(this)
         );
         this.verticalScrollbar.addEventListener(
@@ -122,8 +122,11 @@ export class ScrollbarManager {
         );
 
         // Global mouse events for dragging
-        document.addEventListener("mousemove", this.handleMouseMove.bind(this));
-        document.addEventListener("mouseup", this.handleMouseUp.bind(this));
+        document.addEventListener(
+            "pointermove",
+            this.handleMouseMove.bind(this)
+        );
+        document.addEventListener("pointerup", this.handleMouseUp.bind(this));
 
         // Prevent text selection during drag
         this.horizontalThumb.addEventListener("selectstart", (e) =>
@@ -134,10 +137,10 @@ export class ScrollbarManager {
         );
     }
     /**
-     * Handles the mouse down event for the horizontal scrollbar
-     * @param {MouseEvent} event The mouse down event
+     * Handles pointer down on the horizontal scrollbar thumb
+     * @param event - The pointer event
      */
-    private handleHorizontalMouseDown(event: MouseEvent): void {
+    private handleHorizontalMouseDown(event: PointerEvent): void {
         event.preventDefault();
         this.isDraggingHorizontal = true;
         this.dragStartX = event.clientX;
@@ -149,10 +152,10 @@ export class ScrollbarManager {
     }
 
     /**
-     * Handles the mouse down event for the vertical scrollbar
-     * @param {MouseEvent} event The mouse down event
+     * Handles pointer down on the vertical scrollbar thumb
+     * @param event - The pointer event
      */
-    private handleVerticalMouseDown(event: MouseEvent): void {
+    private handleVerticalMouseDown(event: PointerEvent): void {
         event.preventDefault();
         this.isDraggingVertical = true;
         this.dragStartY = event.clientY;
@@ -163,10 +166,10 @@ export class ScrollbarManager {
         this.verticalThumb.classList.add("dragging");
     }
     /**
-     * Handles the mouse move event for the scrollbars
-     * @param {MouseEvent} event The mouse move event
+     * Handles the pointer move event for scrollbar dragging
+     * @param event - The pointer event
      */
-    private handleMouseMove(event: MouseEvent): void {
+    private handleMouseMove(event: PointerEvent): void {
         if (this.isDraggingHorizontal) {
             const deltaX = event.clientX - this.dragStartX;
             const trackWidth = this.horizontalScrollbar.clientWidth;
@@ -266,7 +269,7 @@ export class ScrollbarManager {
         }
     }
     /**
-     * Handles the mouse up event for the scrollbars
+     * Handles the pointer up event for scrollbar dragging
      */
     private handleMouseUp(): void {
         const wasHorizontalDragging = this.isDraggingHorizontal;
@@ -299,7 +302,7 @@ export class ScrollbarManager {
 
     /**
      * Handles the click event for the horizontal scrollbar
-     * @param {MouseEvent} event The click event
+     * @param {MouseEvent} event The mouse event
      */
     private handleHorizontalTrackClick(event: MouseEvent): void {
         if (event.target === this.horizontalThumb) return;
@@ -320,7 +323,7 @@ export class ScrollbarManager {
 
     /**
      * Handles the click event for the vertical scrollbar
-     * @param {MouseEvent} event The click event
+     * @param {MouseEvent} event The mouse event
      */
     private handleVerticalTrackClick(event: MouseEvent): void {
         if (event.target === this.verticalThumb) return;

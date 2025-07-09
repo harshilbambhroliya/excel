@@ -8,25 +8,25 @@ import { ScrollbarManager } from "../../ScrollbarManager.js";
  */
 export interface IEventHandler {
     /**
-     * Handles mouse down events
-     * @param event - The mouse event
+     * Handles pointer down events
+     * @param event - The pointer event
      * @returns true if the event was handled and should not propagate
      */
-    handleMouseDown(event: MouseEvent): boolean;
+    handleMouseDown(event: PointerEvent): boolean;
 
     /**
-     * Handles mouse move events
-     * @param event - The mouse event
+     * Handles pointer move events
+     * @param event - The pointer event
      * @returns true if the event was handled and should not propagate
      */
-    handleMouseMove(event: MouseEvent): boolean;
+    handleMouseMove(event: PointerEvent): boolean;
 
     /**
-     * Handles mouse up events
-     * @param event - The mouse event
+     * Handles pointer up events
+     * @param event - The pointer event
      * @returns true if the event was handled and should not propagate
      */
-    handleMouseUp(event: MouseEvent): boolean;
+    handleMouseUp(event: PointerEvent): boolean;
 
     /**
      * Called when the handler becomes active
@@ -91,9 +91,9 @@ export abstract class BaseHandler implements IEventHandler {
         this.context = context;
     }
 
-    abstract handleMouseDown(event: MouseEvent): boolean;
-    abstract handleMouseMove(event: MouseEvent): boolean;
-    abstract handleMouseUp(event: MouseEvent): boolean;
+    abstract handleMouseDown(event: PointerEvent): boolean;
+    abstract handleMouseMove(event: PointerEvent): boolean;
+    abstract handleMouseUp(event: PointerEvent): boolean;
     abstract getCursor(x: number, y: number): string;
 
     onActivate(): void {

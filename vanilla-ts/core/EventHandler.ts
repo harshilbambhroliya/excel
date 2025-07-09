@@ -160,13 +160,13 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
      */
     private setupEventListeners(): void {
         // Mouse events - now delegated to handler manager
-        this.canvas.addEventListener("mousedown", (event: MouseEvent) =>
+        this.canvas.addEventListener("pointerdown", (event: PointerEvent) =>
             this.handlerManager.handleMouseDown(event)
         );
-        this.canvas.addEventListener("mousemove", (event: MouseEvent) =>
+        this.canvas.addEventListener("pointermove", (event: PointerEvent) =>
             this.handlerManager.handleMouseMove(event)
         );
-        this.canvas.addEventListener("mouseup", (event: MouseEvent) =>
+        this.canvas.addEventListener("pointerup", (event: PointerEvent) =>
             this.handlerManager.handleMouseUp(event)
         );
         this.canvas.addEventListener(
@@ -869,14 +869,14 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
             this.scrollVelocityY = 0;
             this.lastTouchMoveTime = Date.now();
 
-            // Create a simulated mouse event
+            // Create a simulated pointer event
             const mouseEvent = {
                 offsetX,
                 offsetY,
                 preventDefault: () => {},
                 stopPropagation: () => {},
                 button: 0,
-            } as unknown as MouseEvent;
+            } as unknown as PointerEvent;
 
             // On mobile, we only want to select the cell on single tap, not start editing
             if (this.isMobileDevice()) {
@@ -980,14 +980,14 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
             }
 
             // For non-scroll actions or desktop, handle as mouse move
-            const mouseEvent = {
+            const pointerEvent = {
                 offsetX,
                 offsetY,
                 preventDefault: () => {},
                 stopPropagation: () => {},
-            } as unknown as MouseEvent;
+            } as unknown as PointerEvent;
 
-            this.handlerManager.handleMouseMove(mouseEvent);
+            this.handlerManager.handleMouseMove(pointerEvent);
         }
     }
 
@@ -996,12 +996,12 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
      * @param event - The touch event
      */
     private handleTouchEnd(event: TouchEvent): void {
-        const mouseEvent = {
+        const pointerEvent = {
             preventDefault: () => {},
             stopPropagation: () => {},
-        } as unknown as MouseEvent;
+        } as unknown as PointerEvent;
 
-        this.handlerManager.handleMouseUp(mouseEvent);
+        this.handlerManager.handleMouseUp(pointerEvent);
 
         // Handle touch end for mobile devices
         if (this.isMobileDevice()) {

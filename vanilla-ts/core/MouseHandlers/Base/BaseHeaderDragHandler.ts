@@ -7,9 +7,9 @@ export abstract class BaseHeaderDragHandler extends BaseHandler {
     protected headerDragStart: number;
 
     // Document-level event handlers for outside canvas mouse tracking
-    protected documentMouseMoveHandler: ((event: MouseEvent) => void) | null =
+    protected documentMouseMoveHandler: ((event: PointerEvent) => void) | null =
         null;
-    protected documentMouseUpHandler: ((event: MouseEvent) => void) | null =
+    protected documentMouseUpHandler: ((event: PointerEvent) => void) | null =
         null;
     protected lastGlobalMousePos: { x: number; y: number } = { x: 0, y: 0 };
 
@@ -67,25 +67,25 @@ export abstract class BaseHeaderDragHandler extends BaseHandler {
     }
 
     /**
-     * Handles mouse down event to start header dragging
-     * @param event - Mouse event
+     * Handles pointer down event to start header dragging
+     * @param event - Pointer event
      * @returns true if handled, false otherwise
      */
-    abstract handleMouseDown(event: MouseEvent): boolean;
+    abstract handleMouseDown(event: PointerEvent): boolean;
 
     /**
-     * Handles mouse move event to update header selection
-     * @param event - Mouse event
+     * Handles pointer move event to update header selection
+     * @param event - Pointer event
      * @returns true if handled, false otherwise
      */
-    abstract handleMouseMove(event: MouseEvent): boolean;
+    abstract handleMouseMove(event: PointerEvent): boolean;
 
     /**
-     * Handles mouse up event to finalize header selection
-     * @param event - Mouse event
+     * Handles pointer up event to finalize header selection
+     * @param event - Pointer event
      * @returns true if handled, false otherwise
      */
-    handleMouseUp(event: MouseEvent): boolean {
+    handleMouseUp(event: PointerEvent): boolean {
         // Stop auto-scrolling and clean up document listeners
         this.stopAutoScroll();
         this.removeDocumentMouseTracking();
@@ -191,7 +191,7 @@ export abstract class BaseHeaderDragHandler extends BaseHandler {
         } as MouseEvent;
 
         // Reuse the same handleMouseMove logic for consistency
-        this.handleMouseMove(syntheticEvent);
+        this.handleMouseMove(syntheticEvent as unknown as PointerEvent);
     }
 
     /**
@@ -225,32 +225,32 @@ export abstract class BaseHeaderDragHandler extends BaseHandler {
         };
 
         // Create document mouse move handler
-        this.documentMouseMoveHandler = (event: MouseEvent) => {
+        this.documentMouseMoveHandler = (event: PointerEvent) => {
             this.handleGlobalMouseMove(event);
         };
 
         // Create document mouse up handler
-        this.documentMouseUpHandler = (event: MouseEvent) => {
+        this.documentMouseUpHandler = (event: PointerEvent) => {
             this.handleGlobalMouseUp(event);
         };
 
         // Add document-level listeners
-        document.addEventListener("mousemove", this.documentMouseMoveHandler);
-        document.addEventListener("mouseup", this.documentMouseUpHandler);
+        document.addEventListener("pointermove", this.documentMouseMoveHandler);
+        document.addEventListener("pointerup", this.documentMouseUpHandler);
     }
 
     /**
      * Abstract method to handle global mouse movement based on header type
-     * @param event - The mouse event from the document
+     * @param event - The pointer event from the document
      */
-    protected abstract handleGlobalMouseMove(event: MouseEvent): void;
+    protected abstract handleGlobalMouseMove(event: PointerEvent): void;
 
     /**
      * Handles global mouse up events when dragging headers
      * This allows cleaning up listeners when mouse is released outside the canvas
-     * @param event - The mouse event from the document
+     * @param event - The pointer event from the document
      */
-    protected handleGlobalMouseUp(event: MouseEvent): void {
+    protected handleGlobalMouseUp(event: PointerEvent): void {
         // Clean up document listeners
         this.removeDocumentMouseTracking();
 
@@ -265,7 +265,7 @@ export abstract class BaseHeaderDragHandler extends BaseHandler {
     protected removeDocumentMouseTracking(): void {
         if (this.documentMouseMoveHandler) {
             document.removeEventListener(
-                "mousemove",
+                "pointermove",
                 this.documentMouseMoveHandler
             );
             this.documentMouseMoveHandler = null;
@@ -273,7 +273,7 @@ export abstract class BaseHeaderDragHandler extends BaseHandler {
 
         if (this.documentMouseUpHandler) {
             document.removeEventListener(
-                "mouseup",
+                "pointerup",
                 this.documentMouseUpHandler
             );
             this.documentMouseUpHandler = null;

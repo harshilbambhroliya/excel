@@ -25,10 +25,10 @@ export class HandlerManager {
     }
 
     /**
-     * Handles mouse down events by determining the appropriate handler
-     * @param event - The mouse event
+     * Handles pointer down events by determining the appropriate handler
+     * @param event - The pointer event
      */
-    public handleMouseDown(event: MouseEvent): void {
+    public handleMouseDown(event: PointerEvent): void {
         // First check if we should switch handlers based on the mouse position
         const newHandler = this.determineHandler(event);
 
@@ -41,10 +41,10 @@ export class HandlerManager {
     }
 
     /**
-     * Handles mouse move events
-     * @param event - The mouse event
+     * Handles pointer move events
+     * @param event - The pointer event
      */
-    public handleMouseMove(event: MouseEvent): void {
+    public handleMouseMove(event: PointerEvent): void {
         // Update cursor if not currently handling an operation
         if (!this.isHandling()) {
             this.updateCursor(event);
@@ -53,10 +53,10 @@ export class HandlerManager {
     }
 
     /**
-     * Handles mouse up events
-     * @param event - The mouse event
+     * Handles pointer up events
+     * @param event - The pointer event
      */
-    public handleMouseUp(event: MouseEvent): void {
+    public handleMouseUp(event: PointerEvent): void {
         this.currentHandler.handleMouseUp(event);
 
         // After mouse up, potentially switch back to default handler
@@ -67,10 +67,10 @@ export class HandlerManager {
 
     /**
      * Gets the current cursor style
-     * @param event - The mouse event
+     * @param event - The pointer event
      * @returns The cursor style
      */
-    public getCursor(event: MouseEvent): string {
+    public getCursor(event: PointerEvent): string {
         // Check what handler would be used for this position
         const handler = this.determineHandler(event);
         return handler.getCursor(event.offsetX, event.offsetY);
@@ -78,9 +78,9 @@ export class HandlerManager {
 
     /**
      * Updates the cursor based on mouse position
-     * @param event - The mouse event
+     * @param event - The pointer event
      */
-    private updateCursor(event: MouseEvent): void {
+    private updateCursor(event: PointerEvent): void {
         this.updateHeaderHoverState(event);
         const cursor = this.getCursor(event);
         this.context.canvas.style.cursor = cursor;
@@ -88,9 +88,9 @@ export class HandlerManager {
 
     /**
      * Updates the header hover state in the renderer based on mouse position
-     * @param event - The mouse event
+     * @param event - The pointer event
      */
-    private updateHeaderHoverState(event: MouseEvent): void {
+    private updateHeaderHoverState(event: PointerEvent): void {
         const { grid, renderer } = this.context;
         const dimensions = grid.getDimensions();
         const { offsetX, offsetY } = event;
@@ -145,7 +145,7 @@ export class HandlerManager {
      * @param event - The mouse event
      * @returns The appropriate handler
      */
-    private determineHandler(event: MouseEvent): IEventHandler {
+    private determineHandler(event: PointerEvent): IEventHandler {
         // Check for resize handles first
         // this.resizeHandler is a instance of ResizeHandler
         const resizeTarget = this.resizeHandler!.getResizeTarget(
