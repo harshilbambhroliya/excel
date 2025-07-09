@@ -34,22 +34,31 @@ export class CtrlKeyHandler extends BaseKeyboardHandler {
 
         switch (event.key) {
             case "z":
+            case "Z":
                 return this.handleUndo(event);
             case "y":
+            case "Y":
                 return this.handleRedo(event);
             case "c":
+            case "C":
                 return this.handleCopy(event, selection);
             case "x":
+            case "X":
                 return this.handleCut(event, selection);
             case "v":
+            case "V":
                 return this.handlePaste(event, selection);
             case "a":
+            case "A":
                 return this.handleSelectAll(event, selection);
             case "b":
+            case "B":
                 return this.handleBold(event, selection);
             case "i":
+            case "I":
                 return this.handleItalic(event, selection);
             case "u":
+            case "U":
                 return this.handleUnderline(event, selection);
             case "ArrowUp":
             case "ArrowDown":
@@ -381,7 +390,7 @@ export class CtrlKeyHandler extends BaseKeyboardHandler {
                                     /^[$€£¥]\d+(\.\d+)?$/.test(trimmedStr) || // Currency format like $123.45
                                     /^\d+(\.\d+)?%$/.test(trimmedStr) || // Percentage format like 50.5%
                                     /^-?[\d,]+(\.\d+)?$/.test(trimmedStr) // Number with commas like 1,234.56
-                                ); 
+                                );
                             };
 
                             // Detect if this is a numeric value and parse appropriately
