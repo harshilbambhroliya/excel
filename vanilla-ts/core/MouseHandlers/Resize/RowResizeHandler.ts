@@ -66,7 +66,6 @@ export class RowResizeHandler extends BaseResizeHandler {
                 this.renderer.render();
             });
         }
-
         return true;
     }
 
