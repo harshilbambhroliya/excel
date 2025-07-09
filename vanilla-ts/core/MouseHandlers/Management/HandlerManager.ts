@@ -92,7 +92,8 @@ export class HandlerManager {
      * @returns The appropriate handler
      */
     private determineHandler(event: MouseEvent): IEventHandler {
-        // Check for resize handles first (highest priority)
+        // Check for resize handles first
+        // this.resizeHandler is a instance of ResizeHandler
         const resizeTarget = this.resizeHandler!.getResizeTarget(
             event.offsetX,
             event.offsetY,
@@ -104,6 +105,7 @@ export class HandlerManager {
         }
 
         // Check for header drag areas
+        // this.headerDragHandler is a instance of HeaderDragHandler
         const headerDragInfo = this.headerDragHandler!.getHeaderDragInfo(
             event,
             this.context.grid,
