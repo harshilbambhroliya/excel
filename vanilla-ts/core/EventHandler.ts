@@ -830,8 +830,6 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
     /**
      * Handles the touch start event
      * @param event - The touch event
-     */
-    /**
      * Check if the current device is a mobile/touch device
      * @returns True if the device is a mobile/touch device, false otherwise
      */
@@ -842,6 +840,11 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
         );
     }
 
+    /**
+     * Handles the touch start event
+     * @param event - The touch event
+     * @description Initializes touch scrolling and simulates a pointer event for selection.
+     */
     private handleTouchStart(event: TouchEvent): void {
         event.preventDefault();
 
