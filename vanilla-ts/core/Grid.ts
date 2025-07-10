@@ -653,6 +653,10 @@ export class Grid {
 
     public getExcelData(): any[] {
         const data: any[] = [];
+        console.log(
+            `Getting Excel data for ${this.dataManager.getCurrentRows()} rows and ${this.dataManager.getCurrentCols()} columns`
+        );
+        console.time("Excel Data Generation");
         for (let row = 0; row < this.dataManager.getCurrentRows(); row++) {
             const rowData: any = {};
             for (let col = 0; col < this.dataManager.getCurrentCols(); col++) {
@@ -661,6 +665,7 @@ export class Grid {
             }
             data.push(rowData);
         }
+        console.timeEnd("Excel Data Generation");
         return data;
     }
 }

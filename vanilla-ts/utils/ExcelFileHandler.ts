@@ -147,36 +147,38 @@ export class ExcelFileHandler {
         };
     }
 
-    public async downloadExcelFile(
+    public async downloadExcelInChunks(
         data: any[],
         fileName: string
     ): Promise<void> {
-        const worksheet = XLSX.utils.json_to_sheet(data);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+        const chunkSize = 10000;
 
-        // Generate buffer
-        const excelBuffer = XLSX.write(workbook, {
-            bookType: "xlsx",
-            type: "array",
-        });
+        for (let i = 0; i < data.length; i += chunkSize) {
+            const chunk = data.slice(i, i + chunkSize);
 
-        // Create a Blob from the buffer
-        const blob = new Blob([excelBuffer], {
-            type: "application/octet-stream",
-        });
+            const worksheet = XLSX.utils.json_to_sheet(chunk);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
 
-        // Create a link element
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = fileName;
+            const excelBuffer = XLSX.write(workbook, {
+                bookType: "xlsx",
+                type: "array",
+            });
 
-        // Append to the document and trigger download
-        document.body.appendChild(link);
-        link.click();
+            const blob = new Blob([excelBuffer], {
+                type: "application/octet-stream",
+            });
 
-        // Clean up
-        document.body.removeChild(link);
-        URL.revokeObjectURL(link.href);
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `${fileName.replace(/\.xlsx$/, "")}_part${
+                i / chunkSize + 1
+            }.xlsx`;
+
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+        }
     }
 }

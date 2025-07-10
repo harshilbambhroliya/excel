@@ -358,7 +358,7 @@ class ExcelApp {
 
         if (saveDataBtn && this.eventHandler) {
             saveDataBtn.addEventListener("click", () => {
-                this.excelFileHandler!.downloadExcelFile(
+                this.excelFileHandler!.downloadExcelInChunks(
                     this.grid!.getExcelData(),
                     "exported_data.xlsx"
                 );
