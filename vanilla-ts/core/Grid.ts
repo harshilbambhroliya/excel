@@ -650,4 +650,17 @@ export class Grid {
             cell.setStyle(style);
         }
     }
+
+    public getExcelData(): any[] {
+        const data: any[] = [];
+        for (let row = 0; row < this.dataManager.getCurrentRows(); row++) {
+            const rowData: any = {};
+            for (let col = 0; col < this.dataManager.getCurrentCols(); col++) {
+                const cell = this.getCell(row, col);
+                rowData[`col_${col}`] = cell ? cell.value : "";
+            }
+            data.push(rowData);
+        }
+        return data;
+    }
 }

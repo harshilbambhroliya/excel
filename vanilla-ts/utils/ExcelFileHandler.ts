@@ -146,4 +146,37 @@ export class ExcelFileHandler {
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         };
     }
+
+    public async downloadExcelFile(
+        data: any[],
+        fileName: string
+    ): Promise<void> {
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+
+        // Generate buffer
+        const excelBuffer = XLSX.write(workbook, {
+            bookType: "xlsx",
+            type: "array",
+        });
+
+        // Create a Blob from the buffer
+        const blob = new Blob([excelBuffer], {
+            type: "application/octet-stream",
+        });
+
+        // Create a link element
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = fileName;
+
+        // Append to the document and trigger download
+        document.body.appendChild(link);
+        link.click();
+
+        // Clean up
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+    }
 }

@@ -29,6 +29,8 @@ class ExcelApp {
     /** @type {ScrollbarManager | null} Manages scrolling functionality */
     private scrollbarManager: ScrollbarManager | null = null;
 
+    private excelFileHandler: ExcelFileHandler | null = null;
+
     /**
      * Initializes the Excel application
      */
@@ -63,6 +65,7 @@ class ExcelApp {
             this.renderer,
             this.commandManager
         );
+        this.excelFileHandler = new ExcelFileHandler();
 
         // Set the event handler in renderer
         this.renderer.setEventHandler(this.eventHandler);
@@ -132,6 +135,7 @@ class ExcelApp {
         const alignRightBtn = document.getElementById("alignRight");
         const removeRowBtn = document.getElementById("removeRow");
         const removeColumnBtn = document.getElementById("removeColumn");
+        const saveDataBtn = document.getElementById("saveData");
 
         if (loadDataBtn) {
             loadDataBtn.addEventListener("click", () => {
@@ -349,6 +353,15 @@ class ExcelApp {
         if (alignRightBtn && this.eventHandler) {
             alignRightBtn.addEventListener("click", () => {
                 this.eventHandler!.toggleStyle("alignRight");
+            });
+        }
+
+        if (saveDataBtn && this.eventHandler) {
+            saveDataBtn.addEventListener("click", () => {
+                this.excelFileHandler!.downloadExcelFile(
+                    this.grid!.getExcelData(),
+                    "exported_data.xlsx"
+                );
             });
         }
     }
