@@ -1371,26 +1371,32 @@ export class EventHandler implements IHandlerContext, IKeyboardContext {
             const width = Math.round(cellRect.width - borderOffset * 2);
             const height = Math.round(cellRect.height - borderOffset * 2);
 
-            // Check if the cell editor would be outside the canvas boundaries
-            const dimensions = this.grid.getDimensions();
-            const isOutsideCanvas =
-                cellRect.y < dimensions.headerHeight ||
-                cellRect.y + cellRect.height > this.canvas.height ||
-                cellRect.x < dimensions.headerWidth ||
-                cellRect.x + cellRect.width > this.canvas.width;
+            const rowHeaderWidth = this.grid.getDimensions().headerWidth;
+            const columnHeaderHeight = this.grid.getDimensions().headerHeight;
 
-            if (isOutsideCanvas) {
-                // Hide the cell editor if it's outside the canvas
-                this.cellEditor.style.display = "none";
-            } else {
-                // Show and position the cell editor if it's within the canvas
-                this.cellEditor.style.display = "block";
+            const visibleLeft = canvasRect.left + rowHeaderWidth + 70;
+            const visibleTop = canvasRect.top + columnHeaderHeight + 70;
+            const visibleRight = canvasRect.right;
+            const visibleBottom = canvasRect.bottom;
+
+            const isVisible =
+                left + width > visibleLeft &&
+                left < visibleRight &&
+                top + height > visibleTop &&
+                top < visibleBottom;
+
+            this.cellEditor.style.display = "block";
+            this.cellEditor.style.width = width + "px";
+            this.cellEditor.style.height = height + "px";
+            this.cellEditor.style.fontSize =
+                this.BASE_EDITOR_FONT_SIZE * zoomFactor + "px";
+
+            if (isVisible) {
                 this.cellEditor.style.left = left + "px";
                 this.cellEditor.style.top = top + "px";
-                this.cellEditor.style.width = width + "px";
-                this.cellEditor.style.height = height + "px";
-                this.cellEditor.style.fontSize =
-                    this.BASE_EDITOR_FONT_SIZE * zoomFactor + "px";
+            } else {
+                this.cellEditor.style.left = "-9999px";
+                this.cellEditor.style.top = "-9999px";
             }
         }
     }
