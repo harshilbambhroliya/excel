@@ -357,11 +357,21 @@ class ExcelApp {
         }
 
         if (saveDataBtn && this.eventHandler) {
-            saveDataBtn.addEventListener("click", () => {
-                this.excelFileHandler!.downloadExcelInChunks(
-                    this.grid!.getExcelData(),
-                    "exported_data.xlsx"
-                );
+            saveDataBtn.addEventListener("click", async () => {
+                const loader = document.getElementById("loader");
+                loader!.style.display = "block";
+
+                try {
+                    await this.excelFileHandler!.downloadExcelInChunks(
+                        this.grid!.getExcelData(),
+                        "exported_data.xlsx"
+                    );
+                } catch (error) {
+                    console.error("Download failed", error);
+                    alert("Something went wrong while exporting.");
+                } finally {
+                    loader!.style.display = "none";
+                }
             });
         }
     }
