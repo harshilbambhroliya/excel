@@ -164,7 +164,7 @@ export class RowResizeHandler extends BaseResizeHandler {
      * Gets the cursor style for row resizing
      * @returns The cursor style
      */
-    getCursor(): string {
+    getCursor(x: number, y: number): string {
         return "row-resize";
     }
 
